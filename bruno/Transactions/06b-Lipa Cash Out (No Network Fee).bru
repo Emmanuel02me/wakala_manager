@@ -1,0 +1,37 @@
+meta {
+  name: Lipa Cash Out (No Network Fee)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "LIPA_CASH_OUT",
+    "amount": 4800,
+    "hasNetworkFee": false,
+    "customerPhone": "0723456789",
+    "customerName": "Mary Mteja"
+  }
+}
+
+tests {
+  test("floatEffect is +4800 (Hali B)", function() {
+    expect(res.body.floatEffect).to.equal(4800);
+  });
+  test("cashEffect is -4500", function() {
+    expect(res.body.cashEffect).to.equal(-4500);
+  });
+}   

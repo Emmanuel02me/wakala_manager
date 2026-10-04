@@ -1,0 +1,38 @@
+meta {
+  name: Till Cash In
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "TILL_CASH_IN",
+    "amount": 25000,
+    "customerPhone": "0712345678"
+  }
+}
+
+tests {
+  test("floatEffect is -10000", function() {
+    expect(res.body.floatEffect).to.equal(-10000);
+  });
+  test("cashEffect is +10000", function() {
+    expect(res.body.cashEffect).to.equal(10000);
+  });
+  test("revenueModel is MONTHLY", function() {
+    expect(res.body.revenueModel).to.equal("MONTHLY");
+  });
+}

@@ -1,0 +1,45 @@
+meta {
+  name: Record Cash Out
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "CASH_OUT",
+    "amount": 10000,
+    "customerPhone": "0712345678",
+    "customerName": "John Mteja"
+  }
+}
+
+tests {
+  test("Status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+
+  test("Network commission auto-filled (300)", function() {
+    expect(res.body.networkCommission).to.equal(300);
+  });
+
+  test("Owner commission auto-filled (400)", function() {
+    expect(res.body.ownerCommission).to.equal(400);
+  });
+
+  test("Amount is correct", function() {
+    expect(res.body.amount).to.equal(10000);
+  });
+}

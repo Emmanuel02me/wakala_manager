@@ -1,0 +1,31 @@
+meta {
+  name: Till Cash Out (No Network Fee)
+  type: http
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "TILL_CASH_OUT",
+    "amount": 9800,
+    "hasNetworkFee": false,
+    "customerPhone": "0798765432"
+  }
+}
+
+tests {
+  test("floatEffect is +9800", function() {
+    expect(res.body.floatEffect).to.equal(9800);
+  });
+  test("cashEffect is -9800", function() {
+    expect(res.body.cashEffect).to.equal(-9800);
+  });
+}

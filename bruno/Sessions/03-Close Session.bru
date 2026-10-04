@@ -1,0 +1,37 @@
+meta {
+  name: Close Session
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/sessions/{{sessionId}}/close
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userId": {{ownerId}},
+    "closingCash": 215500,
+    "floatClosings": [
+      { "providerId": {{mpesaProviderId}}, "closingBalance": 534500 },
+      { "providerId": {{crdbProviderId}}, "closingBalance": 950000 },
+      { "providerId": {{airtelProviderId}}, "closingBalance": 300000 }
+    ],
+    "notes": "Kufunga kwa usiku"
+  }
+}
+
+tests {
+  test("sessionStatus is CLOSED", function() {
+    expect(res.body.sessionStatus).to.equal("CLOSED");
+  });
+  test("actualCash is 215500", function() {
+    expect(res.body.actualCash).to.equal(215500);
+  });
+}

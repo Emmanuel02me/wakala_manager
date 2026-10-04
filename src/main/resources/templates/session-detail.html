@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Kikao')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'sessions')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1>
+                            <i class="bi bi-calendar-check text-primary"></i>
+                            Kikao cha <span th:text="${sessionDetail.sessionDate}"></span>
+                        </h1>
+                        <p class="subtitle">
+                            <span class="badge-status"
+                                th:classappend="${sessionDetail.status == 'OPEN'} ? 'bg-success text-white' : 'bg-secondary text-white'"
+                                th:text="${sessionDetail.status}"></span>
+                            <span th:if="${sessionDetail.openedBy != null}"
+                                th:text="' — Alifungua: ' + ${sessionDetail.openedBy}"></span>
+                            <span th:if="${sessionDetail.closedBy != null}"
+                                th:text="' — Alifunga: ' + ${sessionDetail.closedBy}"></span>
+                        </p>
+                    </div>
+                    <div>
+                        <a th:href="'/web/reconciliation/' + ${sessionDetail.id}"
+                            class="btn btn-primary-modern btn-modern">
+                            <i class="bi bi-file-earmark-text"></i> Ripoti Kamili
+                        </a>
+                        <a href="/web/sessions" class="btn btn-outline-secondary btn-modern">
+                            <i class="bi bi-arrow-left"></i> Rudi
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="row g-3 mb-4 animate-in">
+                    <div class="col-md-3">
+                        <div class="stat-card primary">
+                            <i class="bi bi-calendar3 stat-icon"></i>
+                            <div class="stat-label">Opening Cash</div>
+                            <div class="stat-value"
+                                th:text="'TZS ' + ${#numbers.formatDecimal(sessionDetail.openingCash, 1, 'COMMA', 0, 'POINT')}">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card info">
+                            <i class="bi bi-wallet2 stat-icon"></i>
+                            <div class="stat-label">Closing Cash</div>
+                            <div class="stat-value"
+                                th:text="${sessionDetail.closingCash != null} ? 'TZS ' + ${#numbers.formatDecimal(sessionDetail.closingCash, 1, 'COMMA', 0, 'POINT')} : '—'">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card warning">
+                            <i class="bi bi-receipt stat-icon"></i>
+                            <div class="stat-label">Miamala</div>
+                            <div class="stat-value" th:text="${transactions.size()}"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="stat-card"
+                            th:classappend="${recon.overallStatus == 'BALANCED'} ? 'success' : (${recon.overallStatus == 'SHORTAGE'} ? 'danger' : 'primary')">
+                            <i class="bi bi-shield-check stat-icon"></i>
+                            <div class="stat-label">Hali</div>
+                            <div class="stat-value" th:text="${recon.overallStatus}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transactions Table -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-list-ul text-primary"></i> Miamala ya Kikao
+                </h4>
+                <div class="table-responsive mb-4">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Provider</th>
+                                <th>Aina</th>
+                                <th>Kiasi</th>
+                                <th>Network</th>
+                                <th>Owner</th>
+                                <th>Mteja</th>
+                                <th>Muda</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="t, iter : ${transactions}"
+                                th:classappend="${t.transactionType == 'VOID'} ? 'table-secondary' : ''">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-wallet2 text-primary"></i>
+                                    <strong th:text="${t.providerName}"></strong>
+                                    <span th:if="${t.destinationProviderName != null}"
+                                        th:text="' → ' + ${t.destinationProviderName}" class="text-muted"></span>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${t.transactionType == 'VOID'} ? 'bg-secondary text-white' : 'bg-info text-white'"
+                                        th:text="${t.transactionType}"></span>
+                                </td>
+                                <td th:text="'TZS ' + ${#numbers.formatDecimal(t.amount, 1, 'COMMA', 0, 'POINT')}"></td>
+                                <td
+                                    th:text="${t.networkCommission != null} ? 'TZS ' + ${#numbers.formatDecimal(t.networkCommission, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                </td>
+                                <td
+                                    th:text="${t.ownerCommission != null} ? 'TZS ' + ${#numbers.formatDecimal(t.ownerCommission, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                </td>
+                                <td>
+                                    <span th:if="${t.customerName != null}" th:text="${t.customerName}"></span>
+                                    <small th:if="${t.customerPhone != null}" class="text-muted d-block"
+                                        th:text="${t.customerPhone}"></small>
+                                </td>
+                                <td>
+                                    <small th:text="${#temporals.format(t.transactionTime, 'HH:mm')}"></small>
+                                </td>
+                            </tr>
+                            <tr th:if="${transactions.isEmpty()}">
+                                <td colspan="8" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 2rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2 mb-0">Hakuna miamala kwenye kikao hiki.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ✅ Matumizi (Expenses) -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-receipt text-danger"></i> Matumizi ya Kikao
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Maelezo</th>
+                                <th>Aina</th>
+                                <th>Kiasi</th>
+                                <th>Status</th>
+                                <th>Muda</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="e, iter : ${expenses}">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-receipt text-danger"></i>
+                                    <strong th:text="${e.description}"></strong>
+                                </td>
+                                <td>
+                                    <span class="badge-status bg-secondary text-white" th:text="${e.category}"></span>
+                                </td>
+                                <td th:text="'TZS ' + ${#numbers.formatDecimal(e.amount, 1, 'COMMA', 0, 'POINT')}"></td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${e.status == 'APPROVED'} ? 'bg-success text-white' : (${e.status == 'PENDING'} ? 'bg-warning text-dark' : 'bg-danger text-white')"
+                                        th:text="${e.status}"></span>
+                                </td>
+                                <td>
+                                    <small th:text="${#temporals.format(e.createdAt, 'HH:mm')}"></small>
+                                </td>
+                            </tr>
+                            <tr th:if="${expenses.isEmpty()}">
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 2rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2 mb-0">Hakuna matumizi kwenye kikao hiki.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

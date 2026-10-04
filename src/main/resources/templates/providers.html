@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Providers')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'providers')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-hdd-network text-primary"></i> Providers</h1>
+                        <p class="subtitle">Simamia mitandao na benki</p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- Fomu ya Kuunda Provider -->
+                <div class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-plus-circle text-success"></i>
+                        <strong>Ongeza Provider Mpya</strong>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/web/providers">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Jina la Provider</label>
+                                    <input type="text" name="name" class="form-control" required
+                                        placeholder="Mfano: M-Pesa, CRDB, NMB">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Aina</label>
+                                    <select name="type" class="form-select" required>
+                                        <option value="">-- Chagua --</option>
+                                        <option value="MOBILE_MONEY">MOBILE_MONEY (Mitandao ya simu)</option>
+                                        <option value="BANK">BANK (Benki)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-save"></i> Ongeza Provider
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Orodha ya Providers -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-list-ul text-primary"></i> Providers Wote
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Jina</th>
+                                <th>Aina</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="p, iter : ${providers}">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-wallet2 text-primary"></i>
+                                    <strong th:text="${p.name}"></strong>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${p.type == 'MOBILE_MONEY'} ? 'bg-info text-white' : 'bg-primary text-white'"
+                                        th:text="${p.type}"></span>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${p.active} ? 'bg-success text-white' : 'bg-secondary text-white'"
+                                        th:text="${p.active ? 'ACTIVE' : 'INACTIVE'}"></span>
+                                </td>
+                            </tr>
+                            <tr th:if="${providers.isEmpty()}">
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2">Hakuna providers bado.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

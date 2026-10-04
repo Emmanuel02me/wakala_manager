@@ -1,0 +1,30 @@
+meta {
+  name: Till Cash Out
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "TILL_CASH_OUT",
+    "amount": 10000,
+    "hasNetworkFee": true,
+    "customerPhone": "0798765432"
+  }
+}

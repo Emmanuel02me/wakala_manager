@@ -1,0 +1,29 @@
+meta {
+  name: Void Transaction
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/transactions/{{txId}}/void
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "reason": "Transaction ilirekodiwa kwa makosa"
+  }
+}
+
+vars:pre-request {
+  txId: 1
+}

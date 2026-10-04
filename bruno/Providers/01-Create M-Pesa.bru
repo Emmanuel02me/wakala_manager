@@ -1,0 +1,34 @@
+meta {
+  name: Create M-Pesa
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/providers
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "name": "M-Pesa",
+    "type": "MOBILE_MONEY"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("mpesaProviderId", res.body.id);
+  }
+}
+
+tests {
+  test("Status is 201", function() {
+    expect(res.status).to.equal(201);
+  });
+}

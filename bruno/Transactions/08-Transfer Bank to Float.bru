@@ -1,0 +1,42 @@
+meta {
+  name: Transfer Bank to Float
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{ownerId}},
+    "providerId": {{crdbProviderId}},
+    "destinationProviderId": {{mpesaProviderId}},
+    "transactionType": "TRANSFER_BANK_TO_FLOAT",
+    "amount": 100000,
+    "reference": "TOP-001"
+  }
+}
+
+tests {
+  test("providerName is CRDB", function() {
+    expect(res.body.providerName).to.equal("CRDB");
+  });
+  test("destinationProviderName is M-Pesa", function() {
+    expect(res.body.destinationProviderName).to.equal("M-Pesa");
+  });
+  test("floatEffect is -100000 (source CRDB inapungua)", function() {
+    expect(res.body.floatEffect).to.equal(-100000);
+  });
+  test("revenueModel is NONE", function() {
+    expect(res.body.revenueModel).to.equal("NONE");
+  });
+}

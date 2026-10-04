@@ -1,0 +1,33 @@
+meta {
+  name: Transfer Float to Bank
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{ownerId}},
+    "providerId": {{mpesaProviderId}},
+    "destinationProviderId": {{crdbProviderId}},
+    "transactionType": "TRANSFER_FLOAT_TO_BANK",
+    "amount": 80000,
+    "reference": "WD-001"
+  }
+}
+
+tests {
+  test("floatEffect is -80000", function() {
+    expect(res.body.floatEffect).to.equal(-80000);
+  });
+}

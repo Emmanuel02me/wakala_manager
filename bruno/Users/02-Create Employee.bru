@@ -1,0 +1,31 @@
+meta {
+  name: Create Employee
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/users
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "emp1",
+    "password": "pass123",
+    "fullName": "Mfanyakazi",
+    "phone": "0787654321",
+    "role": "EMPLOYEE"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("employeeId", res.body.id);
+  }
+}

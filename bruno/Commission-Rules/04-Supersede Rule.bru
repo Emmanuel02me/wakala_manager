@@ -1,0 +1,26 @@
+meta {
+  name: Supersede Rule
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/commission-rules/supersede
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "existingRuleId": {{ruleId1}},
+    "networkCommission": 200,
+    "ownerCommission": 400,
+    "changedByUserId": {{ownerId}},
+    "effectiveFrom": "2026-10-01",
+    "notes": "Kupandisha kwa Oktoba"
+  }
+}

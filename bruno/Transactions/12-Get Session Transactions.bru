@@ -1,0 +1,24 @@
+meta {
+  name: Get Session Transactions
+  type: http
+  seq: 13
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+get {
+  url: {{baseUrl}}/api/transactions/session/{{sessionId}}
+  body: none
+  auth: bearer
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("Returns array", function() {
+    expect(res.body).to.be.an("array");
+  });
+}

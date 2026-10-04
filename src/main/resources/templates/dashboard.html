@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Dashboard')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'dashboard')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-speedometer2 text-primary"></i> Dashboard</h1>
+                        <p class="subtitle">Karibu, <span th:text="${user.fullName}"></span>!</p>
+                    </div>
+                </div>
+
+                <!-- ═══ HAKUNA KIKAO CHA LEO ═══ -->
+                <div th:if="${todaySession == null}">
+                    <div class="card card-custom mb-4 animate-in">
+                        <div class="card-body empty-state">
+                            <i class="bi bi-calendar-x"></i>
+                            <h4>Hakuna kikao wazi leo</h4>
+                            <p>Anza biashara yako kwa kufungua kikao kipya.</p>
+                            <a href="/web/sessions" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-plus-circle"></i> Fungua Kikao
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Last Closed Session -->
+                    <div th:if="${lastClosed != null}" class="card card-custom mb-4 animate-in">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span>
+                                <i class="bi bi-clock-history text-info"></i>
+                                <strong>Kikao cha Mwisho — <span th:text="${lastClosed.sessionDate}"></span></strong>
+                            </span>
+                            <a th:href="'/web/reconciliation/' + ${lastClosed.sessionId}"
+                                class="btn btn-sm btn-outline-primary rounded-pill">
+                                <i class="bi bi-file-earmark-text"></i> Ripoti Kamili
+                            </a>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <p class="text-muted small mb-1">Faida</p>
+                                    <h5 class="text-success"
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(lastReconciliation.totalInstantProfit, 1, 'COMMA', 0, 'POINT')}">
+                                    </h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <p class="text-muted small mb-1">Closing Cash</p>
+                                    <h5
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(lastClosed.closingCash, 1, 'COMMA', 0, 'POINT')}">
+                                    </h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <p class="text-muted small mb-1">Miamala</p>
+                                    <h5 th:text="${lastReconciliation.totalTransactionCount}"></h5>
+                                </div>
+                                <div class="col-md-3">
+                                    <p class="text-muted small mb-1">Hali</p>
+                                    <span class="badge-status"
+                                        th:classappend="${lastReconciliation.overallStatus == 'BALANCED'} ? 'bg-success text-white' : 'bg-danger text-white'"
+                                        th:text="${lastReconciliation.overallStatus}"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ KIKAO CHA LEO KIPO ═══ -->
+                <div th:if="${todaySession != null}">
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-3 animate-in delay-1">
+                            <div class="stat-card"
+                                th:classappend="${reconciliation.netProfit.compareTo(T(java.math.BigDecimal).ZERO) >= 0} ? 'success' : 'danger'">
+                                <i class="bi bi-cash-coin stat-icon"></i>
+                                <div class="stat-label">Faida Halisi</div>
+                                <div class="stat-value">
+                                    TZS <span
+                                        th:text="${#numbers.formatDecimal(reconciliation.netProfit, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 animate-in delay-2">
+                            <div class="stat-card info">
+                                <i class="bi bi-wallet2 stat-icon"></i>
+                                <div class="stat-label">Cash Inatarajiwa</div>
+                                <div class="stat-value">
+                                    TZS <span
+                                        th:text="${#numbers.formatDecimal(reconciliation.expectedCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 animate-in delay-2">
+                            <div class="stat-card warning">
+                                <i class="bi bi-receipt stat-icon"></i>
+                                <div class="stat-label">Miamala</div>
+                                <div class="stat-value" th:text="${reconciliation.totalTransactionCount}"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-3 animate-in delay-3">
+                            <div class="stat-card"
+                                th:classappend="${reconciliation.overallStatus == 'BALANCED'} ? 'success' : (${reconciliation.overallStatus == 'SHORTAGE'} ? 'danger' : 'primary')">
+                                <i class="bi bi-shield-check stat-icon"></i>
+                                <div class="stat-label">Hali</div>
+                                <div class="stat-value" th:text="${reconciliation.overallStatus}"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 animate-in delay-3">
+                        <a href="/web/transactions" class="btn btn-primary-modern btn-modern">
+                            <i class="bi bi-plus-circle"></i> Rekodi Muamala
+                        </a>
+                        <a th:href="'/web/reconciliation/' + ${todaySession.id}"
+                            class="btn btn-outline-primary btn-modern">
+                            <i class="bi bi-file-earmark-text"></i> Ripoti ya Leo
+                        </a>
+                        <a th:if="${user.role.name() == 'OWNER'}" href="/web/providers"
+                            class="btn btn-outline-info btn-modern">
+                            <i class="bi bi-hdd-network"></i> Providers
+                        </a>
+                        <a th:if="${user.role.name() == 'OWNER'}" href="/web/commission-rules"
+                            class="btn btn-outline-warning btn-modern">
+                            <i class="bi bi-sliders"></i> Commission Rules
+                        </a>
+                        <a href="/web/expenses" class="btn btn-outline-danger btn-modern">
+                            <i class="bi bi-receipt"></i> Matumizi
+                        </a>
+                    </div>
+
+                    <h4 class="mb-3 animate-in delay-3">
+                        <i class="bi bi-hdd-network text-primary"></i> Hali ya Providers
+                    </h4>
+                    <div class="row g-3">
+                        <div class="col-md-4 animate-in delay-3" th:each="p : ${reconciliation.providers}">
+                            <div class="card card-custom">
+                                <div class="card-header d-flex justify-content-between align-items-center">
+                                    <span class="fw-bold">
+                                        <i class="bi bi-wallet2"></i>
+                                        <span th:text="${p.providerName}"></span>
+                                    </span>
+                                    <span class="badge-status"
+                                        th:classappend="${p.status == 'BALANCED'} ? 'bg-success text-white' : (${p.status == 'SHORTAGE'} ? 'bg-danger text-white' : 'bg-secondary text-white')"
+                                        th:text="${p.status}"></span>
+                                </div>
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted small">Opening</span>
+                                        <strong
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(p.openingFloat, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-muted small">Expected</span>
+                                        <strong
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(p.expectedClosingFloat, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2"
+                                        th:if="${p.actualClosingFloat != null}">
+                                        <span class="text-muted small">Actual</span>
+                                        <strong
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(p.actualClosingFloat, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-2"
+                                        th:if="${p.floatDifference != null}">
+                                        <span class="text-muted small">Tofauti</span>
+                                        <strong
+                                            th:classappend="${p.floatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0} ? 'text-success' : 'text-danger'">
+                                            <span
+                                                th:if="${p.floatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0}">TZS
+                                                0</span>
+                                            <span
+                                                th:if="${p.floatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) > 0}"
+                                                th:text="'TZS ' + ${#numbers.formatDecimal(p.floatDifference, 1, 'COMMA', 0, 'POINT')}"></span>
+                                        </strong>
+                                    </div>
+                                    <hr class="my-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted small"><i class="bi bi-receipt"></i> Miamala</span>
+                                        <strong th:text="${p.transactionCount}"></strong>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ RECENT SESSIONS (kwa wote) ═══ -->
+                <div th:if="${recentSessions != null and !recentSessions.isEmpty()}"
+                    class="card card-custom mt-4 animate-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-clock-history text-primary"></i>
+                            <strong>Vikao vya Hivi Karibuni</strong>
+                        </span>
+                        <a href="/web/sessions" class="btn btn-sm btn-outline-primary rounded-pill">
+                            <i class="bi bi-arrow-right"></i> Vyote
+                        </a>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tarehe</th>
+                                        <th>Status</th>
+                                        <th>Opening</th>
+                                        <th>Closing</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr th:each="s : ${recentSessions}">
+                                        <td>
+                                            <i class="bi bi-calendar3 text-primary"></i>
+                                            <strong th:text="${s.sessionDate}"></strong>
+                                        </td>
+                                        <td>
+                                            <span class="badge-status"
+                                                th:classappend="${s.status == 'OPEN'} ? 'bg-success text-white' : 'bg-secondary text-white'"
+                                                th:text="${s.status}"></span>
+                                        </td>
+                                        <td
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(s.openingCash, 1, 'COMMA', 0, 'POINT')}">
+                                        </td>
+                                        <td
+                                            th:text="${s.closingCash != null} ? 'TZS ' + ${#numbers.formatDecimal(s.closingCash, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                        </td>
+                                        <td>
+                                            <a th:href="'/web/reconciliation/' + ${s.id}"
+                                                class="btn btn-sm btn-outline-primary rounded-pill">
+                                                <i class="bi bi-file-earmark-text"></i> Ripoti
+                                            </a>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

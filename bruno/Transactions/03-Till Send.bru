@@ -1,0 +1,38 @@
+meta {
+  name: Till Send
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "TILL_SEND",
+    "amount": 15000,
+    "customerPhone": "0711222333"
+  }
+}
+
+tests {
+  test("floatEffect is -10000", function() {
+    expect(res.body.floatEffect).to.equal(-10000);
+  });
+  test("cashEffect is +10000", function() {
+    expect(res.body.cashEffect).to.equal(10000);
+  });
+  test("networkCommission is 0", function() {
+    expect(res.body.networkCommission).to.equal(0);
+  });
+}

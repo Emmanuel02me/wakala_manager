@@ -1,0 +1,31 @@
+meta {
+  name: Create Owner
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/users
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "username": "owner",
+    "password": "pass123",
+    "fullName": "Emma",
+    "phone": "0712345678",
+    "role": "OWNER"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("ownerId", res.body.id);
+  }
+}

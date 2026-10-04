@@ -1,0 +1,29 @@
+meta {
+  name: Create Till Cash Out Rule
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/commission-rules
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "TILL_CASH_OUT",
+    "minAmount": 1000,
+    "maxAmount": 10000,
+    "networkCommission": 200,
+    "ownerCommission": 0,
+    "createdByUserId": {{ownerId}},
+    "effectiveFrom": "2026-09-01",
+    "notes": "Till cash out - network pekee"
+  }
+}

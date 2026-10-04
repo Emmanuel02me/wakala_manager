@@ -1,0 +1,11 @@
+meta {
+  name: Get Rules by Provider
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/commission-rules/provider/{{mpesaProviderId}}?type=LIPA_CASH_OUT
+  body: none
+  auth: none
+}

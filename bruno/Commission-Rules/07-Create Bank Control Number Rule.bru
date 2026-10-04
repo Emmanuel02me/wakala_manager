@@ -1,0 +1,29 @@
+meta {
+  name: Create Bank Control Number Rule
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/commission-rules
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "providerId": {{crdbProviderId}},
+    "transactionType": "BANK_CONTROL_NUMBER",
+    "minAmount": 1000,
+    "maxAmount": 100000,
+    "networkCommission": 0,
+    "ownerCommission": 500,
+    "createdByUserId": {{ownerId}},
+    "effectiveFrom": "2026-09-01",
+    "notes": "Commission ya ziada kwa wateja wa Dar"
+  }
+}

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Wasifu Wangu')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'profile')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-person-circle text-primary"></i> Wasifu Wangu</h1>
+                        <p class="subtitle">Sasisha taarifa zako binafsi</p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <div class="row">
+                    <!-- User Info Card -->
+                    <div class="col-md-4 mb-4 animate-in">
+                        <div class="card card-custom">
+                            <div class="card-body text-center p-4">
+                                <div
+                                    style="width: 80px; height: 80px; margin: 0 auto; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-person-fill text-white" style="font-size: 2.5rem;"></i>
+                                </div>
+                                <h4 class="mt-3 mb-1" th:text="${user.fullName}"></h4>
+                                <p class="text-muted mb-2" th:text="'@' + ${user.username}"></p>
+                                <span class="badge-status"
+                                    th:classappend="${user.role.name() == 'OWNER'} ? 'bg-primary text-white' : 'bg-info text-white'"
+                                    th:text="${user.role}"></span>
+                                <hr>
+                                <div class="text-start">
+                                    <p class="mb-1">
+                                        <i class="bi bi-telephone text-primary"></i>
+                                        <span class="text-muted">Simu:</span>
+                                        <strong th:text="${user.phone != null ? user.phone : '—'}"></strong>
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Update Profile Form -->
+                    <div class="col-md-8 mb-4 animate-in delay-1">
+                        <div class="card card-custom mb-4">
+                            <div class="card-header">
+                                <i class="bi bi-pencil-square text-primary"></i>
+                                <strong>Sasisha Taarifa</strong>
+                            </div>
+                            <div class="card-body">
+                                <form method="post" action="/web/profile">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Jina Kamili</label>
+                                        <input type="text" name="fullName" class="form-control"
+                                            th:value="${user.fullName}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Namba ya Simu</label>
+                                        <input type="text" name="phone" class="form-control" th:value="${user.phone}"
+                                            placeholder="0712345678">
+                                    </div>
+                                    <button type="submit" class="btn btn-primary-modern btn-modern">
+                                        <i class="bi bi-save"></i> Hifadhi
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- Change Password -->
+                        <div class="card card-custom">
+                            <div class="card-header">
+                                <i class="bi bi-shield-lock text-danger"></i>
+                                <strong>Badilisha Password</strong>
+                            </div>
+                            <div class="card-body">
+                                <form method="post" action="/web/profile/password">
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Password ya Sasa</label>
+                                        <input type="password" name="currentPassword" class="form-control" required
+                                            placeholder="••••••">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Password Mpya</label>
+                                        <input type="password" name="newPassword" class="form-control" required
+                                            minlength="6" placeholder="••••••">
+                                        <small class="text-muted">Angalau herufi 6</small>
+                                    </div>
+                                    <button type="submit" class="btn btn-danger btn-modern">
+                                        <i class="bi bi-key"></i> Badilisha Password
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

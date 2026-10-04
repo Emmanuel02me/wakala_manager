@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Ripoti')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'sessions')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-file-earmark-text text-primary"></i> Ripoti ya Kikao</h1>
+                        <p class="subtitle">Tarehe: <span th:text="${recon.sessionDate}"></span></p>
+                    </div>
+                    <a href="/web/sessions" class="btn btn-outline-secondary btn-modern">
+                        <i class="bi bi-arrow-left"></i> Rudi
+                    </a>
+                </div>
+
+                <!-- Stats Kuu -->
+                <div class="row g-3 mb-4">
+                    <div class="col-md-3 animate-in">
+                        <div class="stat-card success">
+                            <i class="bi bi-cash-coin stat-icon"></i>
+                            <div class="stat-label">Faida</div>
+                            <div class="stat-value">
+                                TZS <span
+                                    th:text="${#numbers.formatDecimal(recon.totalInstantProfit, 1, 'COMMA', 0, 'POINT')}"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 animate-in delay-1">
+                        <div class="stat-card info">
+                            <i class="bi bi-wallet2 stat-icon"></i>
+                            <div class="stat-label">Cash Inatarajiwa</div>
+                            <div class="stat-value">
+                                TZS <span
+                                    th:text="${#numbers.formatDecimal(recon.expectedCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 animate-in delay-2">
+                        <div class="stat-card warning">
+                            <i class="bi bi-receipt stat-icon"></i>
+                            <div class="stat-label">Miamala</div>
+                            <div class="stat-value" th:text="${recon.totalTransactionCount}"></div>
+                        </div>
+                    </div>
+                    <div class="col-md-3 animate-in delay-3">
+                        <div class="stat-card"
+                            th:classappend="${recon.overallStatus == 'BALANCED'} ? 'success' : (${recon.overallStatus == 'SHORTAGE'} ? 'danger' : 'primary')">
+                            <i class="bi bi-shield-check stat-icon"></i>
+                            <div class="stat-label">Hali</div>
+                            <div class="stat-value" th:text="${recon.overallStatus}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cash Breakdown -->
+                <div class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-cash text-primary"></i>
+                        <strong>Cash Breakdown</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-3">
+                                <p class="text-muted small mb-1">Opening Cash</p>
+                                <h5
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.openingCash, 1, 'COMMA', 0, 'POINT')}">
+                                </h5>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted small mb-1">Cash Effect</p>
+                                <h5
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.cashEffectTotal, 1, 'COMMA', 0, 'POINT')}">
+                                </h5>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted small mb-1">Actual Cash</p>
+                                <h5
+                                    th:text="${recon.actualCash != null} ? 'TZS ' + ${#numbers.formatDecimal(recon.actualCash, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                </h5>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted small mb-1">Tofauti</p>
+                                <h5 th:if="${recon.cashDifference != null}"
+                                    th:classappend="${recon.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0} ? 'text-success' : 'text-danger'">
+                                    TZS <span
+                                        th:if="${recon.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0}">0</span>
+                                    <span
+                                        th:if="${recon.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) > 0}"
+                                        th:text="${#numbers.formatDecimal(recon.cashDifference, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </h5>
+                                <h5 th:if="${recon.cashDifference == null}" class="text-muted">—</h5>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Providers Breakdown -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-hdd-network text-primary"></i> Breakdown ya Providers
+                </h4>
+
+                <div class="row g-3">
+                    <div class="col-md-6 animate-in" th:each="p : ${recon.providers}">
+                        <div class="card card-custom">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <span>
+                                    <i class="bi bi-wallet2 text-primary"></i>
+                                    <strong th:text="${p.providerName}"></strong>
+                                    <span class="badge bg-secondary ms-2" th:text="${p.providerType}"></span>
+                                </span>
+                                <span class="badge-status"
+                                    th:classappend="${p.status == 'BALANCED'} ? 'bg-success text-white' : (${p.status == 'SHORTAGE'} ? 'bg-danger text-white' : 'bg-secondary text-white')"
+                                    th:text="${p.status}"></span>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Opening Float</span>
+                                    <strong
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(p.openingFloat, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Float Effect</span>
+                                    <strong
+                                        th:classappend="${p.floatEffect.compareTo(T(java.math.BigDecimal).ZERO) >= 0} ? 'text-success' : 'text-danger'"
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(p.floatEffect, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-muted">Expected Closing</span>
+                                    <strong
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(p.expectedClosingFloat, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2"
+                                    th:if="${p.actualClosingFloat != null}">
+                                    <span class="text-muted">Actual Closing</span>
+                                    <strong
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(p.actualClosingFloat, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2" th:if="${p.floatDifference != null}">
+                                    <span class="text-muted">Tofauti</span>
+                                    <strong
+                                        th:classappend="${p.floatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0} ? 'text-success' : 'text-danger'">
+                                        TZS <span
+                                            th:if="${p.floatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0}">0</span>
+                                        <span
+                                            th:if="${p.floatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) > 0}"
+                                            th:text="${#numbers.formatDecimal(p.floatDifference, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    </strong>
+                                </div>
+                                <hr class="my-2">
+                                <div class="row text-center">
+                                    <div class="col-4">
+                                        <p class="text-muted small mb-0">Miamala</p>
+                                        <strong th:text="${p.transactionCount}"></strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <p class="text-muted small mb-0">Network</p>
+                                        <strong
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(p.networkCommissionTotal, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    </div>
+                                    <div class="col-4">
+                                        <p class="text-muted small mb-0">Faida</p>
+                                        <strong class="text-success"
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(p.instantProfit, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    </div>
+                                </div>
+                                <div th:if="${p.monthlyTransactionCount > 0}" class="mt-2 text-muted small">
+                                    <i class="bi bi-info-circle"></i>
+                                    Monthly: <span th:text="${p.monthlyTransactionCount}"></span> miamala,
+                                    TZS <span
+                                        th:text="${#numbers.formatDecimal(p.monthlyVolume, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    volume
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ✅ Matumizi Breakdown -->
+                <h4 class="mb-3 mt-4 animate-in">
+                    <i class="bi bi-receipt text-danger"></i> Matumizi
+                </h4>
+                <div th:if="${recon.totalExpenses != null and recon.totalExpenses.compareTo(T(java.math.BigDecimal).ZERO) > 0}"
+                    class="card card-custom mb-4 animate-in" style="border-left: 4px solid #ef4444;">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="bi bi-receipt text-danger"></i>
+                                Jumla ya Matumizi
+                            </h5>
+                            <h4 class="text-danger mb-0"
+                                th:text="'TZS ' + ${#numbers.formatDecimal(recon.totalExpenses, 1, 'COMMA', 0, 'POINT')}">
+                            </h4>
+                        </div>
+                        <a th:href="'/web/expenses'" class="btn btn-sm btn-outline-danger rounded-pill mt-2">
+                            <i class="bi bi-list-ul"></i> Angalia Matumizi Yote
+                        </a>
+                    </div>
+                </div>
+                <div th:if="${recon.totalExpenses == null or recon.totalExpenses.compareTo(T(java.math.BigDecimal).ZERO) == 0}"
+                    class="alert alert-info animate-in">
+                    <i class="bi bi-info-circle"></i> Hakuna matumizi kwenye kikao hiki.
+                </div>
+
+                <!-- ═══ SHORTAGE ANALYSIS (OWNER pekee) ═══ -->
+                <div th:if="${analysis != null and analysis.providers != null and !analysis.providers.isEmpty()}"
+                    class="mt-4">
+
+                    <!-- Overall summary -->
+                    <div th:if="${analysis.overallStatus != 'BALANCED'}" class="alert alert-danger animate-in">
+                        <h5>
+                            <i class="bi bi-exclamation-triangle"></i>
+                            Uchambuzi wa Shortage
+                        </h5>
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <strong>Jumla ya Shortage:</strong>
+                                <span class="text-danger"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(analysis.totalShortage, 1, 'COMMA', 0, 'POINT')}"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Jumla ya Overage:</strong>
+                                <span class="text-warning"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(analysis.totalOverage, 1, 'COMMA', 0, 'POINT')}"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Per-provider analysis -->
+                    <div th:each="pa : ${analysis.providers}" th:if="${pa.status != 'BALANCED'}"
+                        class="card card-custom mb-3 animate-in">
+                        <div class="card-header d-flex justify-content-between align-items-center"
+                            th:classappend="${pa.severity == 'CRITICAL'} ? 'bg-danger text-white' : (${pa.severity == 'HIGH'} ? 'bg-warning' : 'bg-light')">
+                            <span>
+                                <i class="bi bi-wallet2"></i>
+                                <strong th:text="${pa.providerName}"></strong>
+                                <span class="badge bg-secondary ms-2" th:text="${pa.severity}"></span>
+                            </span>
+                            <span
+                                th:text="'Tofauti: TZS ' + ${#numbers.formatDecimal(pa.difference, 1, 'COMMA', 0, 'POINT')}"></span>
+                        </div>
+                        <div class="card-body">
+                            <ul class="mb-0">
+                                <li th:each="s : ${pa.suggestions}" th:text="${s}"></li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- General suggestions -->
+                    <div th:if="${analysis.generalSuggestions != null and !analysis.generalSuggestions.isEmpty()}"
+                        class="card card-custom animate-in">
+                        <div class="card-header">
+                            <i class="bi bi-lightbulb text-warning"></i>
+                            <strong>Mapendekezo ya Jumla</strong>
+                        </div>
+                        <div class="card-body">
+                            <ul class="mb-0">
+                                <li th:each="s : ${analysis.generalSuggestions}" th:text="${s}"></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div th:if="${analysis != null and analysis.overallStatus == 'BALANCED'}"
+                    class="alert alert-success animate-in mt-4">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>Kikao kimefungwa kwa usahihi. Hakuna tatizo.</strong>
+                </div>
+
+                <!-- Summary -->
+                <div class="card card-custom mt-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-calculator text-primary"></i>
+                        <strong>Muhtasari</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Faida (Instant)</span>
+                            <strong class="text-success"
+                                th:text="'TZS ' + ${#numbers.formatDecimal(recon.totalInstantProfit, 1, 'COMMA', 0, 'POINT')}"></strong>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span>Gharama</span>
+                            <strong class="text-danger"
+                                th:text="'- TZS ' + ${#numbers.formatDecimal(recon.totalExpenses, 1, 'COMMA', 0, 'POINT')}"></strong>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <span class="fw-bold">Faida Halisi</span>
+                            <strong class="fs-5"
+                                th:classappend="${recon.netProfit.compareTo(T(java.math.BigDecimal).ZERO) >= 0} ? 'text-success' : 'text-danger'"
+                                th:text="'TZS ' + ${#numbers.formatDecimal(recon.netProfit, 1, 'COMMA', 0, 'POINT')}"></strong>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Print Button -->
+                <div class="text-end mt-4">
+                    <button onclick="window.print()" class="btn btn-primary-modern btn-modern">
+                        <i class="bi bi-printer"></i> Chapisha Ripoti
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

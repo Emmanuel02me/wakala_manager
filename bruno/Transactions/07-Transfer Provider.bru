@@ -1,0 +1,46 @@
+meta {
+  name: Transfer Provider
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: bearer
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{ownerId}},
+    "providerId": {{mpesaProviderId}},
+    "destinationProviderId": {{crdbProviderId}},
+    "transactionType": "TRANSFER_PROVIDER",
+    "amount": 100000,
+    "reference": "TRF-001"
+  }
+}
+
+tests {
+  test("revenueModel is NONE", function() {
+    expect(res.body.revenueModel).to.equal("NONE");
+  });
+  test("destinationProviderName is CRDB", function() {
+    expect(res.body.destinationProviderName).to.equal("CRDB");
+  });
+  test("floatEffect is -50000", function() {
+    expect(res.body.floatEffect).to.equal(-50000);
+  });
+  test("cashEffect is 0", function() {
+    expect(res.body.cashEffect).to.equal(0);
+  });
+}

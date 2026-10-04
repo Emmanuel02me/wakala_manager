@@ -1,0 +1,35 @@
+meta {
+  name: Till Pay Bill
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "TILL_PAY_BILL",
+    "amount": 20000,
+    "customerPhone": "0744555666"
+  }
+}
+
+tests {
+  test("floatEffect is -10000", function() {
+    expect(res.body.floatEffect).to.equal(-10000);
+  });
+  test("cashEffect is +10000", function() {
+    expect(res.body.cashEffect).to.equal(10000);
+  });
+}

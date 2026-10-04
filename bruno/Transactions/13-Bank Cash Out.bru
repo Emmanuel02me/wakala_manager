@@ -1,0 +1,42 @@
+meta {
+  name: Bank Cash Out
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{crdbProviderId}},
+    "transactionType": "BANK_CASH_OUT",
+    "amount": 190000,
+    "customerPhone": "0712345678",
+    "customerName": "John Mteja"
+  }
+}
+
+tests {
+  test("floatEffect is +190000", function() {
+    expect(res.body.floatEffect).to.equal(190000);
+  });
+  test("cashEffect is -190000", function() {
+    expect(res.body.cashEffect).to.equal(-190000);
+  });
+  test("revenueModel is MONTHLY", function() {
+    expect(res.body.revenueModel).to.equal("MONTHLY");
+  });
+  test("ownerCommission is 0", function() {
+    expect(res.body.ownerCommission).to.equal(0);
+  });
+}

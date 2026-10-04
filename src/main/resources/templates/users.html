@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Watumiaji')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'users')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-people text-primary"></i> Watumiaji</h1>
+                        <p class="subtitle">Simamia watumiaji wa mfumo</p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- Fomu ya Kuunda User -->
+                <div class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-person-plus text-success"></i>
+                        <strong>Ongeza Mtumiaji Mpya</strong>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/web/users">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Username</label>
+                                    <input type="text" name="username" class="form-control" required placeholder="emp1"
+                                        minlength="3">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Password</label>
+                                    <input type="password" name="password" class="form-control" required
+                                        placeholder="••••••" minlength="6">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Role</label>
+                                    <select name="role" class="form-select" required>
+                                        <option value="EMPLOYEE">EMPLOYEE</option>
+                                        <option value="OWNER">OWNER</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Jina Kamili</label>
+                                    <input type="text" name="fullName" class="form-control" required
+                                        placeholder="Asha Mfanyakazi">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Namba ya Simu</label>
+                                    <input type="text" name="phone" class="form-control" placeholder="0712345678">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-save"></i> Ongeza Mtumiaji
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Orodha ya Watumiaji -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-list-ul text-primary"></i> Watumiaji Wote
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Username</th>
+                                <th>Jina Kamili</th>
+                                <th>Simu</th>
+                                <th>Role</th>
+                                <th>Vitendo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="u, iter : ${users}">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-person-circle text-primary"></i>
+                                    <strong th:text="${u.username}"></strong>
+                                </td>
+                                <td th:text="${u.fullName}"></td>
+                                <td>
+                                    <span th:if="${u.phone != null}" th:text="${u.phone}"></span>
+                                    <span th:if="${u.phone == null}" class="text-muted">—</span>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${u.role == 'OWNER'} ? 'bg-primary text-white' : 'bg-info text-white'"
+                                        th:text="${u.role}"></span>
+                                </td>
+                                <td>
+                                    <!-- Delete button — haipatikani kwa current user -->
+                                    <form method="post" th:action="'/web/users/' + ${u.id} + '/delete'"
+                                        style="display: inline;" th:if="${u.id != user.id}"
+                                        onsubmit="return confirm('Una uhakika wa kufuta mtumiaji huyu?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                            <i class="bi bi-trash"></i> Futa
+                                        </button>
+                                    </form>
+                                    <span th:if="${u.id == user.id}" class="text-muted small">
+                                        <i class="bi bi-person-check"></i> Ni wewe
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr th:if="${users.isEmpty()}">
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2">Hakuna watumiaji bado.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

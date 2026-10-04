@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Matumizi')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'expenses')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-receipt text-primary"></i> Matumizi</h1>
+                        <p class="subtitle">Rekodi na simamia matumizi ya biashara</p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- Hakuna kikao -->
+                <div th:if="${todaySession == null}" class="card card-custom animate-in">
+                    <div class="card-body empty-state">
+                        <i class="bi bi-calendar-x"></i>
+                        <h4>Hakuna kikao wazi</h4>
+                        <p>Fungua kikao kwanza ili kurekodi matumizi.</p>
+                        <a href="/web/sessions" class="btn btn-primary-modern btn-modern">
+                            <i class="bi bi-plus-circle"></i> Fungua Kikao
+                        </a>
+                    </div>
+                </div>
+
+                <div th:if="${todaySession != null}">
+                    <!-- Fomu ya Kuongeza Matumizi -->
+                    <div class="card card-custom mb-4 animate-in">
+                        <div class="card-header">
+                            <i class="bi bi-plus-circle text-danger"></i>
+                            <strong>Ongeza Matumizi Mpya</strong>
+                        </div>
+                        <div class="card-body">
+                            <form method="post" action="/web/expenses">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Maelezo</label>
+                                        <input type="text" name="description" class="form-control" required
+                                            placeholder="Mfano: Usafiri, Chakula, Kodi">
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label fw-bold">Kiasi (TZS)</label>
+                                        <div class="input-group">
+                                            <span class="input-group-text">TZS</span>
+                                            <input type="number" name="amount" class="form-control" step="0.01" required
+                                                placeholder="0">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 mb-3">
+                                        <label class="form-label fw-bold">Aina</label>
+                                        <select name="category" class="form-select">
+                                            <option value="">-- Chagua --</option>
+                                            <option value="USAFIRI">Usafiri</option>
+                                            <option value="CHAKULA">Chakula</option>
+                                            <option value="KODI">Kodi</option>
+                                            <option value="MATENGENEZO">Matengenezo</option>
+                                            <option value="MISHARA">Mishahara</option>
+                                            <option value="NYINGINE">Nyingine</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label fw-bold">Namba ya Risiti (hiari)</label>
+                                        <input type="text" name="receiptNumber" class="form-control"
+                                            placeholder="RCP-001">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-primary-modern btn-modern">
+                                    <i class="bi bi-save"></i> Rekodi Matumizi
+                                </button>
+                                <small class="text-muted ms-2">
+                                    <i class="bi bi-info-circle"></i>
+                                    Matumizi < TZS 20,000 yanaidhinishwa moja kwa moja. Zaidi yanasubiri idhini ya
+                                        mmiliki. </small>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Matumizi Yanayosubiri Idhini (OWNER pekee) -->
+                    <div th:if="${user.role.name() == 'OWNER' and !pendingExpenses.isEmpty()}"
+                        class="card card-custom mb-4 animate-in" style="border-left: 4px solid #f59e0b;">
+                        <div class="card-header bg-warning-subtle">
+                            <i class="bi bi-hourglass-split text-warning"></i>
+                            <strong>Matumizi Yanayosubiri Idhini (<span
+                                    th:text="${pendingExpenses.size()}"></span>)</strong>
+                        </div>
+                        <div class="card-body">
+                            <div th:each="e : ${pendingExpenses}"
+                                class="d-flex justify-content-between align-items-center border-bottom py-2">
+                                <div>
+                                    <strong th:text="${e.description}"></strong>
+                                    <span class="badge bg-secondary ms-2" th:text="${e.category}"></span>
+                                    <br>
+                                    <small class="text-muted">
+                                        TZS <span
+                                            th:text="${#numbers.formatDecimal(e.amount, 1, 'COMMA', 0, 'POINT')}"></span>
+                                        — <span th:text="${#temporals.format(e.createdAt, 'dd/MM HH:mm')}"></span>
+                                    </small>
+                                </div>
+                                <div>
+                                    <form method="post" th:action="'/web/expenses/' + ${e.id} + '/approve'"
+                                        style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-success rounded-pill">
+                                            <i class="bi bi-check-circle"></i> Idhinisha
+                                        </button>
+                                    </form>
+                                    <form method="post" th:action="'/web/expenses/' + ${e.id} + '/reject'"
+                                        style="display: inline;">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                            <i class="bi bi-x-circle"></i> Kataa
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Orodha ya Matumizi ya Leo -->
+                    <h4 class="mb-3 animate-in">
+                        <i class="bi bi-list-ul text-primary"></i> Matumizi ya Leo
+                    </h4>
+                    <div class="table-responsive">
+                        <table class="table table-modern animate-in">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Maelezo</th>
+                                    <th>Aina</th>
+                                    <th>Kiasi</th>
+                                    <th>Status</th>
+                                    <th>Muda</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr th:each="e, iter : ${expenses}">
+                                    <td th:text="${iter.index + 1}"></td>
+                                    <td>
+                                        <i class="bi bi-receipt text-danger"></i>
+                                        <strong th:text="${e.description}"></strong>
+                                    </td>
+                                    <td>
+                                        <span class="badge-status bg-secondary text-white"
+                                            th:text="${e.category}"></span>
+                                    </td>
+                                    <td th:text="'TZS ' + ${#numbers.formatDecimal(e.amount, 1, 'COMMA', 0, 'POINT')}">
+                                    </td>
+                                    <td>
+                                        <span class="badge-status"
+                                            th:classappend="${e.status == 'APPROVED'} ? 'bg-success text-white' : (${e.status == 'PENDING'} ? 'bg-warning text-dark' : 'bg-danger text-white')"
+                                            th:text="${e.status}"></span>
+                                    </td>
+                                    <td>
+                                        <small th:text="${#temporals.format(e.createdAt, 'HH:mm')}"></small>
+                                    </td>
+                                    <td>
+                                        <form method="post" th:action="'/web/expenses/' + ${e.id} + '/cancel'"
+                                            style="display: inline;" onsubmit="return confirm('Futa matumizi haya?')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill"
+                                                th:if="${e.status != 'APPROVED' 
+                    or (todaySession != null and todaySession.status == 'REOPENED' and user.role.name() == 'OWNER')}">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <tr th:if="${expenses == null or expenses.isEmpty()}">
+                                    <td colspan="7" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                        <p class="mt-2">Hakuna matumizi bado.</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Jumla -->
+                    <div class="card card-custom mt-4 animate-in" style="border-left: 4px solid #ef4444;">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">
+                                    <i class="bi bi-calculator text-danger"></i>
+                                    Jumla ya Matumizi ya Leo
+                                </h5>
+                                <h4 class="text-danger mb-0">
+                                    TZS <span
+                                        th:text="${#numbers.formatDecimal(totalExpenses, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

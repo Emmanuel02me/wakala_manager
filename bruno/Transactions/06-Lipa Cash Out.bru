@@ -1,0 +1,31 @@
+meta {
+  name: Lipa Cash Out
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "LIPA_CASH_OUT",
+    "amount": 5000,
+    "hasNetworkFee": true,
+    "customerPhone": "0712345678",
+    "customerName": "John Mteja"
+  }
+}

@@ -1,0 +1,47 @@
+meta {
+  name: Open Session
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/sessions/open
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "openingCash": 500000,
+    "floatOpenings": [
+      { "providerId": {{mpesaProviderId}}, "openingBalance": 1000000 },
+      { "providerId": {{crdbProviderId}}, "openingBalance": 2000000 },
+      { "providerId": {{airtelProviderId}}, "openingBalance": 500000 }
+    ],
+    "adjustmentNote": "Kikao kipya cha testing auth",
+    "notes": "Kikao cha kwanza baada ya auth"
+  }
+}
+
+script:post-response {
+  if (res.status === 200 || res.status === 201) {
+    bru.setEnvVar("sessionId", res.body.id);
+  }
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+  test("Session status is OPEN", function() {
+    expect(res.body.status).to.equal("OPEN");
+  });
+}

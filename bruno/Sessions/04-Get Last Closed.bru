@@ -1,0 +1,17 @@
+meta {
+  name: Get Last Closed
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/sessions/last-closed
+  body: none
+  auth: none
+}
+
+tests {
+  test("Status is 200", function() {
+    expect(res.status).to.equal(200);
+  });
+}

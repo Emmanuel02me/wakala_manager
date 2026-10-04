@@ -1,0 +1,33 @@
+meta {
+  name: Create Rule 50k+
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/commission-rules
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "providerId": {{mpesaProviderId}},
+    "transactionType": "LIPA_CASH_OUT",
+    "minAmount": 50001,
+    "networkCommission": 900,
+    "ownerCommission": 1000,
+    "createdByUserId": {{ownerId}},
+    "effectiveFrom": "2026-09-01"
+  }
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setEnvVar("ruleId3", res.body.id);
+  }
+}

@@ -1,0 +1,34 @@
+# Build
+target/
+*.jar
+*.war
+*.class
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+*.env.local
+
+# Local configs
+application-local.properties
+application-secret.properties
+
+# Maven
+.mvn/wrapper/maven-wrapper.jar

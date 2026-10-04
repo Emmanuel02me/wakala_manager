@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Miamala')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'transactions')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-cash-stack text-primary"></i> Miamala</h1>
+                        <p class="subtitle">Rekodi na fuatilia miamala ya leo</p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- Hakuna kikao -->
+                <div th:if="${todaySession == null}" class="card card-custom animate-in">
+                    <div class="card-body empty-state">
+                        <i class="bi bi-calendar-x"></i>
+                        <h4>Hakuna kikao wazi</h4>
+                        <p>Fungua kikao kwanza ili kurekodi miamala.</p>
+                        <a href="/web/sessions" class="btn btn-primary-modern btn-modern">
+                            <i class="bi bi-plus-circle"></i> Fungua Kikao
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Fomu ya Kurekodi Muamala -->
+                <div th:if="${todaySession != null}" class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-plus-circle text-success"></i>
+                        <strong>Rekodi Muamala Mpya</strong>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/web/transactions">
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Provider</label>
+                                    <select name="providerId" class="form-select" required>
+                                        <option value="">-- Chagua --</option>
+                                        <option th:each="p : ${providers}" th:value="${p.id}" th:text="${p.name}">
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Aina ya Muamala</label>
+                                    <select name="transactionType" class="form-select" required>
+                                        <option value="">-- Chagua --</option>
+                                        <option th:each="t : ${transactionTypes}" th:value="${t}" th:text="${t}">
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label fw-bold">Kiasi (TZS)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number" name="amount" class="form-control" step="0.01" required
+                                            placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Destination Provider (kwa Transfers)</label>
+                                    <select name="destinationProviderId" class="form-select">
+                                        <option value="">-- Hakuna --</option>
+                                        <option th:each="p : ${providers}" th:value="${p.id}" th:text="${p.name}">
+                                        </option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Namba ya Mteja</label>
+                                    <input type="text" name="customerPhone" class="form-control"
+                                        placeholder="0712345678">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Jina la Mteja</label>
+                                    <input type="text" name="customerName" class="form-control"
+                                        placeholder="John Mteja">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Reference (hiari)</label>
+                                    <input type="text" name="reference" class="form-control" placeholder="REF-001">
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Has Network Fee?</label>
+                                    <select name="hasNetworkFee" class="form-select">
+                                        <option value="true">Ndiyo</option>
+                                        <option value="false">Hapana (ilishakatwa)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4 mb-3">
+                                    <label class="form-label">Charge Owner Commission?</label>
+                                    <select name="chargeOwnerCommission" class="form-select">
+                                        <option value="false">Hapana</option>
+                                        <option value="true">Ndiyo (Bank Control)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-save"></i> Rekodi Muamala
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Orodha ya Miamala -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-list-ul text-primary"></i> Miamala ya Leo
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Provider</th>
+                                <th>Aina</th>
+                                <th>Kiasi</th>
+                                <th>Network</th>
+                                <th>Owner</th>
+                                <th>Mteja</th>
+                                <th>Muda</th>
+                                <th th:if="${user.role.name() == 'OWNER'}">Vitendo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="t, iter : ${transactions}"
+                                th:classappend="${t.transactionType == 'VOID'} ? 'table-secondary' : ''">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-wallet2 text-primary"></i>
+                                    <strong th:text="${t.providerName}"></strong>
+                                    <span th:if="${t.destinationProviderName != null}"
+                                        th:text="' → ' + ${t.destinationProviderName}" class="text-muted"></span>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${t.transactionType == 'VOID'} ? 'bg-secondary text-white' : 'bg-info text-white'"
+                                        th:text="${t.transactionType}"></span>
+                                </td>
+                                <td th:text="'TZS ' + ${#numbers.formatDecimal(t.amount, 1, 'COMMA', 0, 'POINT')}"></td>
+                                <td
+                                    th:text="${t.networkCommission != null} ? 'TZS ' + ${#numbers.formatDecimal(t.networkCommission, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                </td>
+                                <td>
+                                    <strong
+                                        th:if="${t.ownerCommission != null and t.ownerCommission.compareTo(T(java.math.BigDecimal).ZERO) > 0}"
+                                        class="text-success"
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(t.ownerCommission, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    <strong
+                                        th:if="${t.ownerCommission != null and t.ownerCommission.compareTo(T(java.math.BigDecimal).ZERO) < 0}"
+                                        class="text-danger"
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(t.ownerCommission, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                    <span
+                                        th:if="${t.ownerCommission == null or t.ownerCommission.compareTo(T(java.math.BigDecimal).ZERO) == 0}"
+                                        class="text-muted">—</span>
+                                </td>
+                                <td>
+                                    <span th:if="${t.customerName != null}" th:text="${t.customerName}"></span>
+                                    <small th:if="${t.customerPhone != null}" class="text-muted d-block"
+                                        th:text="${t.customerPhone}"></small>
+                                </td>
+                                <td>
+                                    <small th:text="${#temporals.format(t.transactionTime, 'HH:mm')}"></small>
+                                </td>
+                                <td th:if="${user.role.name() == 'OWNER'}">
+                                    <!-- Void button — tu kwa OWNER, tu kwa unlocked, sio VOID, sio LOCKED -->
+                                    <button th:if="${!t.locked and t.transactionType != 'VOID'}" type="button"
+                                        class="btn btn-sm btn-outline-danger rounded-pill" data-bs-toggle="modal"
+                                        th:attr="data-bs-target='#voidModal' + ${t.id}">
+                                        <i class="bi bi-x-octagon"></i> Void
+                                    </button>
+                                    <span th:if="${t.locked and t.transactionType != 'VOID'}"
+                                        class="badge-status bg-secondary text-white"
+                                        title="Transaction imefungwa">LOCKED</span>
+                                </td>
+                            </tr>
+                            <tr th:if="${transactions == null or transactions.isEmpty()}">
+                                <td colspan="9" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2">Hakuna miamala bado.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Void Modals (moja kwa kila transaction) -->
+                <div th:each="t : ${transactions}">
+                    <div th:if="${!t.locked and t.transactionType != 'VOID'}" class="modal fade"
+                        th:id="'voidModal' + ${t.id}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="post" th:action="'/web/transactions/' + ${t.id} + '/void'">
+                                    <div class="modal-header bg-danger text-white">
+                                        <h5 class="modal-title">
+                                            <i class="bi bi-exclamation-triangle"></i>
+                                            Void Transaction #<span th:text="${t.id}"></span>
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white"
+                                            data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning">
+                                            <strong>Onyo:</strong> Void haifuti transaction. Inaunda reversal entry
+                                            inayocancel effects zote. Original inabaki kwa audit.
+                                        </div>
+                                        <p class="mb-1"><strong>Provider:</strong> <span
+                                                th:text="${t.providerName}"></span></p>
+                                        <p class="mb-1"><strong>Aina:</strong> <span
+                                                th:text="${t.transactionType}"></span></p>
+                                        <p class="mb-3"><strong>Kiasi:</strong> TZS <span
+                                                th:text="${#numbers.formatDecimal(t.amount, 1, 'COMMA', 0, 'POINT')}"></span>
+                                        </p>
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Sababu ya Kuviodi <span
+                                                    class="text-danger">*</span></label>
+                                            <textarea name="reason" class="form-control" rows="3" required
+                                                placeholder="Mfano: Transaction ilirekodiwa kwa makosa"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Acha</button>
+                                        <button type="submit" class="btn btn-danger">
+                                            <i class="bi bi-x-octagon"></i> Void Transaction
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

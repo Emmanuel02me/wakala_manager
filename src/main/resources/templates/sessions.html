@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Vikao')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'sessions')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-calendar-check text-primary"></i> Vikao</h1>
+                        <p class="subtitle">
+                            <span th:if="${user.role.name() == 'OWNER'}">Fuatilia vikao vyote vya biashara yako</span>
+                            <span th:if="${user.role.name() == 'EMPLOYEE'}">Simamia kikao cha leo</span>
+                        </p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- OWNER STATS -->
+                <div th:if="${user.role.name() == 'OWNER'}" class="row g-3 mb-4">
+                    <div class="col-md-4 animate-in">
+                        <div class="stat-card primary">
+                            <i class="bi bi-calendar3 stat-icon"></i>
+                            <div class="stat-label">Jumla ya Vikao</div>
+                            <div class="stat-value" th:text="${totalSessions}">0</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 animate-in delay-1">
+                        <div class="stat-card success">
+                            <i class="bi bi-check-circle stat-icon"></i>
+                            <div class="stat-label">Vikao Vilivyofungwa</div>
+                            <div class="stat-value" th:text="${closedSessions}">0</div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 animate-in delay-2">
+                        <div class="stat-card warning">
+                            <i class="bi bi-clock-history stat-icon"></i>
+                            <div class="stat-label">Vikao Wazi</div>
+                            <div class="stat-value" th:text="${openSessions}">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ═══ OPEN SESSION FORM (HAKUNA KIKAO) ═══ -->
+                <div th:if="${todaySession == null}" class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-plus-circle text-success"></i>
+                        <strong>Fungua Kikao Kipya</strong>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/web/sessions/open">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Opening Cash (TZS)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number" name="openingCash" class="form-control" step="0.01"
+                                            required placeholder="0">
+                                    </div>
+                                </div>
+                            </div>
+                            <h6 class="mt-3 mb-3"><i class="bi bi-wallet2 text-primary"></i> Float za Kuanzia</h6>
+                            <div class="row">
+                                <div class="col-md-4 mb-3" th:each="p, pStat : ${providers}">
+                                    <label class="form-label" th:text="${p.name}"></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number"
+                                            th:name="'floatOpenings[' + ${pStat.index} + '].openingBalance'"
+                                            class="form-control" step="0.01" placeholder="0">
+                                        <input type="hidden"
+                                            th:name="'floatOpenings[' + ${pStat.index} + '].providerId'"
+                                            th:value="${p.id}">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- ADJUSTMENT NOTE -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">
+                                    <i class="bi bi-exclamation-triangle text-warning"></i>
+                                    Sababu ya Tofauti (kama ipo)
+                                </label>
+                                <textarea name="adjustmentNote" class="form-control" rows="2"
+                                    placeholder="Mfano: Mteja alikuja usiku, nilichukua cash kutoka float"></textarea>
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle"></i>
+                                    Kama kuna tofauti kati ya closing ya jana na opening ya leo (> TZS 10,000),
+                                    tafadhali toa sababu hapa.
+                                </small>
+                            </div>
+
+                            <!-- NOTES -->
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Maelezo ya Kikao (hiari)</label>
+                                <textarea name="notes" class="form-control" rows="2"
+                                    placeholder="Kama kuna maelezo mengine"></textarea>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-play-circle"></i> Fungua Kikao
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ═══ CLOSE SESSION FORM (KIKAO KIPO) ═══ -->
+                <!-- ✅ Null check: hakikisha todaySession ipo kabla ya kutumia .status -->
+                <div th:if="${todaySession != null and todaySession.status == 'REOPENED'}"
+                    class="alert alert-warning animate-in">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Kikao hiki kimefunguliwa tena.</strong>
+                    Unaweza kuongeza au kufuta matumizi, kisha kifunge kwa kubonyeza "Funga Kikao" chini.
+                </div>
+
+                <div th:if="${todaySession != null}" class="card card-custom mb-4 animate-in">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-x-circle text-danger"></i>
+                            <strong>
+                                Funga Kikao cha Leo
+                                <span th:if="${todaySession.status == 'REOPENED'}"
+                                    class="badge-status bg-warning text-dark ms-2">
+                                    REOPENED
+                                </span>
+                            </strong>
+                        </span>
+                        <a th:href="'/web/reconciliation/' + ${todaySession.id}"
+                            class="btn btn-sm btn-outline-primary rounded-pill">
+                            <i class="bi bi-file-earmark-text"></i> Ripoti
+                        </a>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" th:action="'/web/sessions/' + ${todaySession.id} + '/close'">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Closing Cash (TZS)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number" name="closingCash" class="form-control" step="0.01"
+                                            required placeholder="Actual cash uliyo nayo">
+                                    </div>
+                                </div>
+                            </div>
+                            <h6 class="mt-3 mb-3"><i class="bi bi-wallet2 text-primary"></i> Closing Float (Actual)</h6>
+                            <div class="row">
+                                <div class="col-md-4 mb-3" th:each="p, pStat : ${providers}">
+                                    <label class="form-label" th:text="${p.name}"></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number"
+                                            th:name="'floatClosings[' + ${pStat.index} + '].closingBalance'"
+                                            class="form-control" step="0.01" placeholder="0">
+                                        <input type="hidden"
+                                            th:name="'floatClosings[' + ${pStat.index} + '].providerId'"
+                                            th:value="${p.id}">
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label fw-bold">Maelezo (hiari)</label>
+                                <textarea name="notes" class="form-control" rows="2"></textarea>
+                            </div>
+                            <button type="submit" class="btn btn-danger btn-modern"
+                                onclick="return confirm('Una uhakika wa kufunga kikao?')">
+                                <i class="bi bi-stop-circle"></i> Funga Kikao
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- ═══ HISTORY ═══ -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-clock-history text-primary"></i> Historia ya Vikao
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>Tarehe</th>
+                                <th>Aliyefungua</th>
+                                <th>Status</th>
+                                <th>Opening</th>
+                                <th>Closing</th>
+                                <th>Vitendo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="s : ${sessions}">
+                                <td>
+                                    <i class="bi bi-calendar3 text-primary"></i>
+                                    <strong th:text="${s.sessionDate}"></strong>
+                                </td>
+                                <td th:text="${s.openedBy != null ? s.openedBy : '—'}"></td>
+                                <td>
+                                    <!-- ✅ Status badge: OPEN, REOPENED, CLOSED -->
+                                    <span class="badge-status" th:classappend="${s.status == 'OPEN'} ? 'bg-success text-white' : 
+                                                        (${s.status == 'REOPENED'} ? 'bg-warning text-dark' : 
+                                                        'bg-secondary text-white')" th:text="${s.status}"></span>
+                                </td>
+                                <td th:text="'TZS ' + ${#numbers.formatDecimal(s.openingCash, 1, 'COMMA', 0, 'POINT')}">
+                                </td>
+                                <td
+                                    th:text="${s.closingCash != null} ? 'TZS ' + ${#numbers.formatDecimal(s.closingCash, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                </td>
+                                <td>
+                                    <!-- Reopen button — kwa OWNER, kikao kilichofungwa -->
+                                    <button th:if="${user.role.name() == 'OWNER' and s.status == 'CLOSED'}"
+                                        type="button" class="btn btn-sm btn-outline-warning rounded-pill"
+                                        data-bs-toggle="modal" th:attr="data-bs-target='#reopenModal' + ${s.id}">
+                                        <i class="bi bi-unlock"></i> Fungua Tena
+                                    </button>
+                                    <a th:href="'/web/sessions/' + ${s.id}"
+                                        class="btn btn-sm btn-outline-info rounded-pill">
+                                        <i class="bi bi-eye"></i> Angalia
+                                    </a>
+                                    <a th:href="'/web/reconciliation/' + ${s.id}"
+                                        class="btn btn-sm btn-outline-primary rounded-pill">
+                                        <i class="bi bi-file-earmark-text"></i> Ripoti
+                                    </a>
+                                </td>
+                            </tr>
+                            <tr th:if="${sessions.isEmpty()}">
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2">Hakuna vikao bado.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- ═══ REOPEN MODALS (nje ya table-responsive) ═══ -->
+                <div th:each="s : ${sessions}">
+                    <div th:if="${s.status == 'CLOSED'}" class="modal fade" th:id="'reopenModal' + ${s.id}"
+                        tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="post" th:action="'/web/sessions/' + ${s.id} + '/reopen'">
+                                    <div class="modal-header bg-warning">
+                                        <h5 class="modal-title">
+                                            <i class="bi bi-unlock"></i> Fungua Kikao Tena
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="alert alert-warning">
+                                            <strong>Onyo:</strong> Kufungua kikao tena kitaruhusu kuongeza
+                                            matumizi au kubadilisha data. Rekodi ya audit itaonyesha hili.
+                                        </div>
+                                        <p><strong>Tarehe:</strong> <span th:text="${s.sessionDate}"></span></p>
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">
+                                                Sababu <span class="text-danger">*</span>
+                                            </label>
+                                            <textarea name="reason" class="form-control" rows="3" required
+                                                placeholder="Mfano: Mfanyakazi alikula chakula bila kurekodi"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Acha</button>
+                                        <button type="submit" class="btn btn-warning">
+                                            <i class="bi bi-unlock"></i> Fungua Kikao
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

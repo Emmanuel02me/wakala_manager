@@ -1,0 +1,33 @@
+meta {
+  name: Bank Control Number
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{crdbProviderId}},
+    "transactionType": "BANK_CONTROL_NUMBER",
+    "amount": 50000,
+    "customerPhone": "0755666777",
+    "reference": "CTRL-2026-001"
+  }
+}
+
+tests {
+  test("revenueModel is MONTHLY", function() {
+    expect(res.body.revenueModel).to.equal("MONTHLY");
+  });
+}

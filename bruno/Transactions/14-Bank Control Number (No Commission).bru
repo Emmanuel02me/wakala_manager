@@ -1,0 +1,43 @@
+meta {
+  name: Bank Control Number (No Commission)
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/transactions
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "sessionId": {{sessionId}},
+    "userId": {{employeeId}},
+    "providerId": {{crdbProviderId}},
+    "transactionType": "BANK_CONTROL_NUMBER",
+    "amount": 30000,
+    "chargeOwnerCommission": false,
+    "customerPhone": "0744555666",
+    "reference": "CTRL-001"
+  }
+}
+
+tests {
+  test("floatEffect is -10000", function() {
+    expect(res.body.floatEffect).to.equal(-10000);
+  });
+  test("cashEffect is +10000", function() {
+    expect(res.body.cashEffect).to.equal(10000);
+  });
+  test("ownerCommission is 0", function() {
+    expect(res.body.ownerCommission).to.equal(0);
+  });
+  test("revenueModel is INSTANT", function() {
+    expect(res.body.revenueModel).to.equal("INSTANT");
+  });
+}

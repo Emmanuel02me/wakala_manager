@@ -1,0 +1,27 @@
+meta {
+  name: Update Safe Fields
+  type: http
+  seq: 1
+}
+
+patch {
+  url: {{baseUrl}}/api/transactions/{{txId}}
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{token}}
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "customerName": "John Mteja Updated",
+    "customerPhone": "0712345678",
+    "reason": "Typo"
+  }
+}

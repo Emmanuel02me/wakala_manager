@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Commission Rules')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'commission-rules')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-sliders text-primary"></i> Commission Rules</h1>
+                        <p class="subtitle">Weka makato ya mtandao na faida yako kwa kila aina ya muamala</p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <!-- Info -->
+                <div class="alert alert-info animate-in">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Kumbuka:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Lipa Cash Out:</strong> Network inakatwa + Faida yako</li>
+                        <li><strong>Till Cash Out:</strong> Network inakatwa pekee (faida inakuja monthly)</li>
+                        <li><strong>Bank Control Number:</strong> Faida yako inatumika kama unatoza</li>
+                    </ul>
+                </div>
+
+                <!-- Fomu ya Kuunda Rule -->
+                <div class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-plus-circle text-success"></i>
+                        <strong>Ongeza Commission Rule Mpya</strong>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/web/commission-rules">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Provider</label>
+                                    <select name="providerId" class="form-select" required>
+                                        <option value="">-- Chagua --</option>
+                                        <option th:each="p : ${providers}" th:value="${p.id}" th:text="${p.name}">
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Aina ya Muamala</label>
+                                    <select name="transactionType" class="form-select" required>
+                                        <option value="">-- Chagua --</option>
+                                        <option th:each="t : ${transactionTypes}" th:value="${t}" th:text="${t}">
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Kuanzia (TZS)</label>
+                                    <input type="number" name="minAmount" class="form-control" step="0.01" required
+                                        placeholder="1000">
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Hadi (TZS) — hiari</label>
+                                    <input type="number" name="maxAmount" class="form-control" step="0.01"
+                                        placeholder="10000 (acha tupu = juu)">
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Network Commission</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number" name="networkCommission" class="form-control" step="0.01"
+                                            required placeholder="200">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Owner Commission</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number" name="ownerCommission" class="form-control" step="0.01"
+                                            required placeholder="300">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Effective From</label>
+                                    <input type="date" name="effectiveFrom" class="form-control"
+                                        th:value="${#temporals.format(#temporals.createToday(), 'yyyy-MM-dd')}">
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Maelezo (hiari)</label>
+                                    <input type="text" name="notes" class="form-control" placeholder="Rates za Oktoba">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-save"></i> Ongeza Rule
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Orodha ya Rules -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-list-ul text-primary"></i> Rules Zinazotumika
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Provider</th>
+                                <th>Aina</th>
+                                <th>Range</th>
+                                <th>Network</th>
+                                <th>Owner</th>
+                                <th>Effective</th>
+                                <th>Status</th>
+                                <th>Vitendo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="r, iter : ${rules}">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-wallet2 text-primary"></i>
+                                    <strong th:text="${r.providerName}"></strong>
+                                </td>
+                                <td>
+                                    <span class="badge-status bg-info text-white" th:text="${r.transactionType}"></span>
+                                </td>
+                                <td>
+                                    <span
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(r.minAmount, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    <span
+                                        th:text="' → ' + ${r.maxAmount != null ? 'TZS ' + #numbers.formatDecimal(r.maxAmount, 1, 'COMMA', 0, 'POINT') : '∞'}"></span>
+                                </td>
+                                <td
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(r.networkCommission, 1, 'COMMA', 0, 'POINT')}">
+                                </td>
+                                <td class="text-success fw-bold"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(r.ownerCommission, 1, 'COMMA', 0, 'POINT')}">
+                                </td>
+                                <td>
+                                    <small>
+                                        <span th:text="${r.effectiveFrom}"></span>
+                                        <span th:if="${r.effectiveTo != null}"
+                                            th:text="' → ' + ${r.effectiveTo}"></span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${r.current} ? 'bg-success text-white' : 'bg-secondary text-white'"
+                                        th:text="${r.current ? 'ACTIVE' : 'PENDING'}"></span>
+                                </td>
+                                <td>
+                                    <!-- Supersede modal trigger -->
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill"
+                                        data-bs-toggle="modal" th:attr="data-bs-target='#supersedeModal' + ${r.id}">
+                                        <i class="bi bi-arrow-repeat"></i> Badilisha
+                                    </button>
+
+                                    <form method="post" th:action="'/web/commission-rules/' + ${r.id} + '/deactivate'"
+                                        style="display: inline;" onsubmit="return confirm('Funga rule hii?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${rules.isEmpty()}">
+                                <td colspan="9" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2">Hakuna commission rules bado. Ongeza kwanza.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Modals za Supersede (moja kwa kila rule) -->
+                <div th:each="r : ${rules}" class="modal fade" th:id="'supersedeModal' + ${r.id}" tabindex="-1">
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <form method="post" th:action="'/web/commission-rules/' + ${r.id} + '/supersede'">
+                                <div class="modal-header bg-primary text-white">
+                                    <h5 class="modal-title">
+                                        <i class="bi bi-arrow-repeat"></i>
+                                        Badilisha Rates — <span th:text="${r.providerName}"></span>
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white"
+                                        data-bs-dismiss="modal"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <p class="text-muted">
+                                        Range: <strong th:text="${r.minAmount}"></strong> -
+                                        <strong th:text="${r.maxAmount != null ? r.maxAmount : '∞'}"></strong>
+                                    </p>
+                                    <p class="text-muted">
+                                        Rates za sasa: Network =
+                                        <strong th:text="${r.networkCommission}"></strong>,
+                                        Owner = <strong th:text="${r.ownerCommission}"></strong>
+                                    </p>
+
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Network Commission Mpya</label>
+                                        <input type="number" name="networkCommission" class="form-control" step="0.01"
+                                            th:value="${r.networkCommission}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Owner Commission Mpya</label>
+                                        <input type="number" name="ownerCommission" class="form-control" step="0.01"
+                                            th:value="${r.ownerCommission}" required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Effective From</label>
+                                        <input type="date" name="effectiveFrom" class="form-control"
+                                            th:value="${#temporals.format(#temporals.createToday(), 'yyyy-MM-dd')}"
+                                            required>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label fw-bold">Maelezo</label>
+                                        <textarea name="notes" class="form-control" rows="2"
+                                            placeholder="Sababu ya mabadiliko"></textarea>
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                        Acha
+                                    </button>
+                                    <button type="submit" class="btn btn-primary">
+                                        <i class="bi bi-save"></i> Badilisha
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

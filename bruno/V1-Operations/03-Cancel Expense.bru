@@ -1,0 +1,22 @@
+meta {
+  name: Cancel Expense
+  type: http
+  seq: 3
+}
+
+delete {
+  url: {{baseUrl}}/api/expenses/{{expenseId}}
+  body: json
+  auth: none
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "userId": {{ownerId}},
+    "reason": "Gharama ilirekodiwa mara mbili"
+  }
+}
