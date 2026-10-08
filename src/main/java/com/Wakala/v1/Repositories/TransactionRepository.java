@@ -13,12 +13,22 @@ import java.util.Optional;
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
         @EntityGraph(attributePaths = {
-                        "provider", "destinationProvider", "recordedBy", "commissionRule", "voidOf"
+                        "provider",
+                        "destinationProvider",
+                        "recordedBy",
+                        "ownerRule", // ✅ Badilisha kutoka commissionRule
+                        "networkRate", // ✅ Ongeza
+                        "voidOf"
         })
         Optional<Transaction> findById(Long id);
 
         @EntityGraph(attributePaths = {
-                        "provider", "destinationProvider", "recordedBy", "commissionRule", "voidOf"
+                        "provider",
+                        "destinationProvider",
+                        "recordedBy",
+                        "ownerRule",
+                        "networkRate",
+                        "voidOf"
         })
         List<Transaction> findBySessionId(Long sessionId);
 
@@ -28,9 +38,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
         @EntityGraph(attributePaths = { "provider", "destinationProvider", "recordedBy" })
         List<Transaction> findBySessionIdAndTransactionType(Long sessionId, Transaction.TransactionType type);
 
-        /**
-         * Lock transactions zote za kikao (baada ya close).
-         */
         @Modifying
         @Query("UPDATE Transaction t SET t.locked = true WHERE t.session.id = :sessionId")
         void lockAllBySessionId(@Param("sessionId") Long sessionId);

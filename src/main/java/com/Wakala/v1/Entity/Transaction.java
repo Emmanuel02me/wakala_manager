@@ -67,8 +67,12 @@ public class Transaction {
     private BigDecimal cashEffect;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "commission_rule_id")
-    private CommissionRule commissionRule;
+    @JoinColumn(name = "owner_rule_id")
+    private OwnerRule ownerRule;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "network_rate_id")
+    private NetworkRate networkRate;
 
     @Column(name = "customer_phone", length = 15)
     private String customerPhone;
