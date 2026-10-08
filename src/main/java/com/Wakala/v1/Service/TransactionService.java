@@ -4,21 +4,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.Wakala.v1.Dto.TransactionRequest;
-import com.Wakala.v1.Dto.TransactionResponse;
-import com.Wakala.v1.Dto.UpdateTransactionRequest;
-import com.Wakala.v1.Dto.VoidTransactionRequest;
-import com.Wakala.v1.Entity.CommissionRule;
-import com.Wakala.v1.Entity.DailySession;
-import com.Wakala.v1.Entity.Provider;
-import com.Wakala.v1.Entity.Transaction;
-import com.Wakala.v1.Entity.User;
+import com.Wakala.v1.Dto.*;
+import com.Wakala.v1.Entity.*;
 import com.Wakala.v1.Exception.BusinessException;
 import com.Wakala.v1.Exception.ResourceNotFoundException;
-import com.Wakala.v1.Repositories.DailySessionRepository;
-import com.Wakala.v1.Repositories.ProviderRepository;
-import com.Wakala.v1.Repositories.TransactionRepository;
-import com.Wakala.v1.Repositories.UserRepository;
+import com.Wakala.v1.Repositories.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -34,26 +24,20 @@ public class TransactionService {
     private final DailySessionRepository sessionRepository;
     private final ProviderRepository providerRepository;
     private final UserRepository userRepository;
-    private final CommissionRuleService commissionRuleService;
+    private final NetworkRateService networkRateService;
+    private final OwnerRuleService ownerRuleService;
     private final AuditService auditService;
 
-    // ═══════════════════════════════════════════
-    // HELPER: Ruhusu OPEN na REOPENED
-    // ═══════════════════════════════════════════
     private boolean isSessionActive(DailySession session) {
         return session.getStatus() == DailySession.SessionStatus.OPEN
                 || session.getStatus() == DailySession.SessionStatus.REOPENED;
     }
 
-    // ═══════════════════════════════════════════
-    // RECORD
-    // ═══════════════════════════════════════════
     @Transactional
     public TransactionResponse record(TransactionRequest request, User user) {
         DailySession session = sessionRepository.findById(request.sessionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Session haipatikani"));
 
-        // ✅ Ruhusu OPEN na REOPENED
         if (!isSessionActive(session)) {
             throw new BusinessException("Kikao hakiko wazi. Hauwezi kurekodi muamala.");
         }
@@ -67,26 +51,40 @@ public class TransactionService {
             validateTransferTypes(request.transactionType(), provider, destinationProvider);
         }
 
+        // ── Network Commission: Auto-fetch kutoka network_rates ──
         BigDecimal networkCommission = BigDecimal.ZERO;
         BigDecimal ownerCommission = BigDecimal.ZERO;
-        CommissionRule rule = null;
+        NetworkRate networkRate = null;
+        OwnerRule ownerRule = null;
 
-        if (requiresCommissionRule(request.transactionType())) {
-            rule = commissionRuleService.findApplicableRule(
-                    request.providerId(),
-                    request.transactionType(),
-                    request.amount());
-            networkCommission = rule.getNetworkCommission();
-            ownerCommission = rule.getOwnerCommission();
+        boolean requiresNetworkRate = requiresNetworkRate(request.transactionType());
+
+        if (requiresNetworkRate) {
+            try {
+                networkRate = networkRateService.findApplicableRate(
+                        request.providerId(),
+                        request.transactionType(),
+                        request.amount());
+                networkCommission = networkRate.getNetworkCommission();
+            } catch (BusinessException e) {
+                // Kama rate haipo, tumia 0
+                networkCommission = BigDecimal.ZERO;
+            }
         }
 
-        if (isBankControlNumberWithCommission(request)) {
-            rule = commissionRuleService.findApplicableRule(
-                    request.providerId(),
-                    request.transactionType(),
-                    request.amount());
-            networkCommission = rule.getNetworkCommission();
-            ownerCommission = rule.getOwnerCommission();
+        // ── Owner Commission: LIPA pekee (au BANK_CONTROL_NUMBER kama
+        // chargeOwnerCommission) ──
+        if (requiresOwnerRule(request.transactionType()) ||
+                isBankControlNumberWithCommission(request)) {
+            try {
+                ownerRule = ownerRuleService.findApplicableRule(
+                        request.providerId(),
+                        request.transactionType(),
+                        request.amount());
+                ownerCommission = ownerRule.getOwnerCommission();
+            } catch (BusinessException e) {
+                ownerCommission = BigDecimal.ZERO;
+            }
         }
 
         boolean hasNetworkFee = Boolean.TRUE.equals(request.hasNetworkFee());
@@ -111,7 +109,8 @@ public class TransactionService {
                 .ownerCommission(ownerCommission)
                 .floatEffect(effect.floatEffect())
                 .cashEffect(effect.cashEffect())
-                .commissionRule(rule)
+                .networkRate(networkRate)
+                .ownerRule(ownerRule)
                 .customerPhone(request.customerPhone())
                 .customerName(request.customerName())
                 .reference(request.reference())
@@ -127,19 +126,30 @@ public class TransactionService {
     }
 
     // ═══════════════════════════════════════════
-    // LOOKUPS / VALIDATION
+    // RULES ZA COMMISSION
     // ═══════════════════════════════════════════
-    private boolean requiresCommissionRule(Transaction.TransactionType type) {
+
+    /**
+     * Transaction types zinazohitaji network rate
+     */
+    private boolean requiresNetworkRate(Transaction.TransactionType type) {
         return switch (type) {
-            case LIPA_CASH_OUT, TILL_CASH_OUT -> true;
+            case TILL_CASH_OUT, LIPA_CASH_OUT, BANK_CASH_OUT -> true;
             default -> false;
         };
     }
 
+    /**
+     * Transaction types zinazohitaji owner rule
+     * (LIPA pekee kwa sasa - wakala anaweka faida yake)
+     */
+    private boolean requiresOwnerRule(Transaction.TransactionType type) {
+        return type == Transaction.TransactionType.LIPA_CASH_OUT;
+    }
+
     private Provider resolveDestinationProvider(TransactionRequest request) {
-        if (!requiresDestination(request.transactionType())) {
+        if (!requiresDestination(request.transactionType()))
             return null;
-        }
 
         if (request.destinationProviderId() == null) {
             throw new BusinessException(
@@ -212,14 +222,13 @@ public class TransactionService {
                     throw new BusinessException("TRANSFER_FLOAT_TO_BANK: destination lazima iwe BANK");
                 }
             }
-            case TRANSFER_PROVIDER -> { /* provider yoyote → provider yoyote */ }
-            default -> { /* sio transfer */ }
+            case TRANSFER_PROVIDER -> {
+                /* provider yoyote → provider yoyote */ }
+            default -> {
+            }
         }
     }
 
-    // ═══════════════════════════════════════════
-    // UPDATE SAFE FIELDS (dakika 30)
-    // ═══════════════════════════════════════════
     @Transactional
     public TransactionResponse updateSafeFields(Long txId, UpdateTransactionRequest req, Long userId) {
         Transaction tx = transactionRepository.findById(txId)
@@ -227,8 +236,7 @@ public class TransactionService {
 
         validateEditable(tx);
 
-        String oldValue = String.format(
-                "customerName=%s, customerPhone=%s, reference=%s",
+        String oldValue = String.format("customerName=%s, customerPhone=%s, reference=%s",
                 tx.getCustomerName(), tx.getCustomerPhone(), tx.getReference());
 
         if (req.customerName() != null)
@@ -240,17 +248,13 @@ public class TransactionService {
 
         transactionRepository.save(tx);
 
-        String newValue = String.format(
-                "customerName=%s, customerPhone=%s, reference=%s",
+        String newValue = String.format("customerName=%s, customerPhone=%s, reference=%s",
                 tx.getCustomerName(), tx.getCustomerPhone(), tx.getReference());
         auditService.log(userId, "UPDATE_TRANSACTION_SAFE", "Transaction", txId, oldValue, newValue);
 
         return toResponse(tx);
     }
 
-    // ═══════════════════════════════════════════
-    // VOID TRANSACTION
-    // ═══════════════════════════════════════════
     @Transactional
     public TransactionResponse voidTransaction(Long txId, VoidTransactionRequest req, Long userId) {
         Transaction original = transactionRepository.findById(txId)
@@ -264,7 +268,6 @@ public class TransactionService {
             throw new BusinessException("Hauwezi kuviodi void");
         }
 
-        // ✅ Ruhusu OPEN na REOPENED
         if (!isSessionActive(original.getSession())) {
             throw new BusinessException("Kikao kimefungwa. Hauwezi kuviodi transaction.");
         }
@@ -287,6 +290,8 @@ public class TransactionService {
                 .ownerCommission(original.getOwnerCommission().negate())
                 .floatEffect(original.getFloatEffect().negate())
                 .cashEffect(original.getCashEffect().negate())
+                .ownerRule(original.getOwnerRule())
+                .networkRate(original.getNetworkRate())
                 .voidOf(original)
                 .voidReason(req.reason())
                 .customerName(original.getCustomerName())
@@ -311,25 +316,19 @@ public class TransactionService {
         return toResponse(voidTx);
     }
 
-    // ═══════════════════════════════════════════
-    // VALIDATION
-    // ═══════════════════════════════════════════
     private void validateEditable(Transaction tx) {
-        // ✅ Ruhusu OPEN na REOPENED
         if (!isSessionActive(tx.getSession())) {
             throw new BusinessException("Kikao kimefungwa. Hauwezi kuedit.");
         }
-        if (tx.isLocked()) {
+        if (tx.isLocked())
             throw new BusinessException("Transaction imefungwa.");
-        }
-        if (tx.isVoided()) {
+        if (tx.isVoided())
             throw new BusinessException("Transaction imeshavoidiwa.");
-        }
+
         long minutes = java.time.temporal.ChronoUnit.MINUTES.between(
                 tx.getCreatedAt(), LocalDateTime.now());
         if (minutes > EDIT_WINDOW_MINUTES) {
-            throw new BusinessException(
-                    "Muda wa kuedit (dakika " + EDIT_WINDOW_MINUTES + ") umepita.");
+            throw new BusinessException("Muda wa kuedit (dakika " + EDIT_WINDOW_MINUTES + ") umepita.");
         }
     }
 }
