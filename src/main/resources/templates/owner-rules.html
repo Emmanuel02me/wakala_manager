@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+
+<head th:replace="~{layout :: head('Owner Rules')}"></head>
+
+<body>
+    <nav th:replace="~{layout :: navbar(${user})}"></nav>
+
+    <div class="container-fluid">
+        <div class="row">
+            <div th:replace="~{layout :: sidebar(${user}, 'owner-rules')}"></div>
+
+            <div class="col-md-10 p-4">
+                <div class="page-header animate-in">
+                    <div>
+                        <h1><i class="bi bi-sliders text-primary"></i> Owner Rules</h1>
+                        <p class="subtitle">Weka faida yako kwa Lipa Cash Out (network commission inatoka kwa mtandao)
+                        </p>
+                    </div>
+                </div>
+
+                <div th:if="${success}" class="alert alert-success alert-dismissible fade show animate-in">
+                    <i class="bi bi-check-circle"></i> <span th:text="${success}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+                <div th:if="${error}" class="alert alert-danger alert-dismissible fade show animate-in">
+                    <i class="bi bi-exclamation-triangle"></i> <span th:text="${error}"></span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+
+                <div class="alert alert-info animate-in">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Kumbuka:</strong>
+                    <ul class="mb-0 mt-2">
+                        <li><strong>Network Commission:</strong> Inatoka kwa mtandao (fixed) - huwezi kuibadilisha</li>
+                        <li><strong>Owner Commission:</strong> Faida yako - unaweka wewe</li>
+                        <li><strong>Effective Dates:</strong> Zinafuata rates za mtandao</li>
+                    </ul>
+                </div>
+
+                <!-- Fomu ya Kuunda Owner Rule -->
+                <div class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-plus-circle text-success"></i>
+                        <strong>Ongeza Owner Rule Mpya</strong>
+                    </div>
+                    <div class="card-body">
+                        <form method="post" action="/web/owner-rules" id="ownerRuleForm">
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Provider</label>
+                                    <select name="providerId" id="providerId" class="form-select" required
+                                        onchange="previewNetworkRate()">
+                                        <option value="">-- Chagua --</option>
+                                        <option th:each="p : ${providers}" th:value="${p.id}" th:text="${p.name}">
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Aina ya Muamala</label>
+                                    <select name="transactionType" id="transactionType" class="form-select" required
+                                        onchange="previewNetworkRate()">
+                                        <option value="">-- Chagua --</option>
+                                        <option th:each="t : ${transactionTypes}" th:value="${t}" th:text="${t}">
+                                        </option>
+                                    </select>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Kuanzia (TZS)</label>
+                                    <input type="number" name="minAmount" id="minAmount" class="form-control"
+                                        step="0.01" required placeholder="1000" onblur="previewNetworkRate()">
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Hadi (TZS) — hiari</label>
+                                    <input type="number" name="maxAmount" id="maxAmount" class="form-control"
+                                        step="0.01" placeholder="10000" onblur="previewNetworkRate()">
+                                </div>
+                            </div>
+
+                            <!-- Auto-fill Network Info -->
+                            <div id="networkInfo" class="alert alert-info d-none">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <strong>Network Commission:</strong>
+                                        <span id="previewNetwork">—</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Range:</strong>
+                                        <span id="previewRange">—</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Effective From:</strong>
+                                        <span id="previewFrom">—</span>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <strong>Effective To:</strong>
+                                        <span id="previewTo">—</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div id="networkNotFound" class="alert alert-warning d-none">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <span id="notFoundMsg">Hakuna network rate inayolingana na range hii.</span>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Owner Commission (Faida Yako)</label>
+                                    <div class="input-group">
+                                        <span class="input-group-text">TZS</span>
+                                        <input type="number" name="ownerCommission" class="form-control" step="0.01"
+                                            required placeholder="300">
+                                    </div>
+                                </div>
+
+                                <div class="col-md-3 mb-3">
+                                    <label class="form-label fw-bold">Effective From</label>
+                                    <input type="date" name="effectiveFrom" id="effectiveFrom" class="form-control"
+                                        th:value="${#temporals.format(#temporals.createToday(), 'yyyy-MM-dd')}">
+                                </div>
+
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">Maelezo (hiari)</label>
+                                    <input type="text" name="notes" class="form-control" placeholder="Rates za Oktoba">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary-modern btn-modern">
+                                <i class="bi bi-save"></i> Ongeza Rule
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <script>
+                    function previewNetworkRate() {
+                        const providerId = document.getElementById('providerId').value;
+                        const transactionType = document.getElementById('transactionType').value;
+                        const minAmount = document.getElementById('minAmount').value;
+
+                        if (!providerId || !transactionType || !minAmount) {
+                            document.getElementById('networkInfo').classList.add('d-none');
+                            document.getElementById('networkNotFound').classList.add('d-none');
+                            return;
+                        }
+
+                        fetch(`/web/owner-rules/preview?providerId=${providerId}&type=${transactionType}&amount=${minAmount}`)
+                            .then(res => res.json())
+                            .then(data => {
+                                if (data.exists) {
+                                    document.getElementById('previewNetwork').textContent =
+                                        'TZS ' + parseFloat(data.networkCommission).toLocaleString();
+                                    document.getElementById('previewRange').textContent =
+                                        'TZS ' + parseFloat(data.minAmount).toLocaleString() + ' - ' +
+                                        (data.maxAmount ? 'TZS ' + parseFloat(data.maxAmount).toLocaleString() : '∞');
+                                    document.getElementById('previewFrom').textContent = data.effectiveFrom;
+                                    document.getElementById('previewTo').textContent = data.effectiveTo || '—';
+
+                                    document.getElementById('networkInfo').classList.remove('d-none');
+                                    document.getElementById('networkNotFound').classList.add('d-none');
+                                } else {
+                                    document.getElementById('networkInfo').classList.add('d-none');
+                                    document.getElementById('notFoundMsg').textContent =
+                                        data.message || 'Hakuna network rate inayolingana.';
+                                    document.getElementById('networkNotFound').classList.remove('d-none');
+                                }
+                            })
+                            .catch(err => {
+                                console.error('Error:', err);
+                            });
+                    }
+                </script>
+
+                <!-- Network Rates Reference -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-hdd-network text-info"></i> Network Rates (Fixed)
+                </h4>
+                <div class="table-responsive mb-4">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>Provider</th>
+                                <th>Aina</th>
+                                <th>Range</th>
+                                <th>Network Commission</th>
+                                <th>Effective</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="nr : ${networkRates}">
+                                <td><strong th:text="${nr.providerName}"></strong></td>
+                                <td>
+                                    <span class="badge-status bg-info text-white"
+                                        th:text="${nr.transactionType}"></span>
+                                </td>
+                                <td
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(nr.minAmount, 1, 'COMMA', 0, 'POINT')} + ' - ' + ${nr.maxAmount != null ? 'TZS ' + #numbers.formatDecimal(nr.maxAmount, 1, 'COMMA', 0, 'POINT') : '∞'}">
+                                </td>
+                                <td
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(nr.networkCommission, 1, 'COMMA', 0, 'POINT')}">
+                                </td>
+                                <td>
+                                    <small th:text="${nr.effectiveFrom}"></small>
+                                </td>
+                            </tr>
+                            <tr th:if="${networkRates.isEmpty()}">
+                                <td colspan="5" class="text-center text-muted py-4">Hakuna network rates</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Orodha ya Owner Rules -->
+                <h4 class="mb-3 animate-in">
+                    <i class="bi bi-list-ul text-primary"></i> Owner Rules Zako
+                </h4>
+                <div class="table-responsive">
+                    <table class="table table-modern animate-in">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Provider</th>
+                                <th>Aina</th>
+                                <th>Range</th>
+                                <th>Owner Commission</th>
+                                <th>Effective</th>
+                                <th>Status</th>
+                                <th>Vitendo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr th:each="r, iter : ${rules}">
+                                <td th:text="${iter.index + 1}"></td>
+                                <td>
+                                    <i class="bi bi-wallet2 text-primary"></i>
+                                    <strong th:text="${r.providerName}"></strong>
+                                </td>
+                                <td>
+                                    <span class="badge-status bg-info text-white" th:text="${r.transactionType}"></span>
+                                </td>
+                                <td>
+                                    <span
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(r.minAmount, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    <span
+                                        th:text="' → ' + ${r.maxAmount != null ? 'TZS ' + #numbers.formatDecimal(r.maxAmount, 1, 'COMMA', 0, 'POINT') : '∞'}"></span>
+                                </td>
+                                <td class="text-success fw-bold"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(r.ownerCommission, 1, 'COMMA', 0, 'POINT')}">
+                                </td>
+                                <td>
+                                    <small>
+                                        <span th:text="${r.effectiveFrom}"></span>
+                                        <span th:if="${r.effectiveTo != null}"
+                                            th:text="' → ' + ${r.effectiveTo}"></span>
+                                    </small>
+                                </td>
+                                <td>
+                                    <span class="badge-status"
+                                        th:classappend="${r.current} ? 'bg-success text-white' : 'bg-secondary text-white'"
+                                        th:text="${r.current ? 'ACTIVE' : 'PENDING'}"></span>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill"
+                                        data-bs-toggle="modal" th:attr="data-bs-target='#supersedeModal' + ${r.id}">
+                                        <i class="bi bi-arrow-repeat"></i> Badilisha
+                                    </button>
+                                    <form method="post" th:action="'/web/owner-rules/' + ${r.id} + '/deactivate'"
+                                        style="display: inline;" onsubmit="return confirm('Funga rule hii?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
+                                            <i class="bi bi-x-circle"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            <tr th:if="${rules.isEmpty()}">
+                                <td colspan="8" class="text-center py-5 text-muted">
+                                    <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
+                                    <p class="mt-2">Hakuna owner rules bado.</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Modals za Supersede -->
+                <div th:each="r : ${rules}">
+                    <div class="modal fade" th:id="'supersedeModal' + ${r.id}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="post" th:action="'/web/owner-rules/' + ${r.id} + '/supersede'">
+                                    <div class="modal-header bg-primary text-white">
+                                        <h5 class="modal-title">
+                                            <i class="bi bi-arrow-repeat"></i>
+                                            Badilisha Rates — <span th:text="${r.providerName}"></span>
+                                        </h5>
+                                        <button type="button" class="btn-close btn-close-white"
+                                            data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <p class="text-muted">
+                                            Range: <strong th:text="${r.minAmount}"></strong> -
+                                            <strong th:text="${r.maxAmount != null ? r.maxAmount : '∞'}"></strong>
+                                        </p>
+                                        <p class="text-muted">
+                                            Owner Commission ya sasa: <strong th:text="${r.ownerCommission}"></strong>
+                                        </p>
+
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Owner Commission Mpya</label>
+                                            <input type="number" name="ownerCommission" class="form-control" step="0.01"
+                                                th:value="${r.ownerCommission}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Effective From</label>
+                                            <input type="date" name="effectiveFrom" class="form-control"
+                                                th:value="${#temporals.format(#temporals.createToday(), 'yyyy-MM-dd')}"
+                                                required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label fw-bold">Maelezo</label>
+                                            <textarea name="notes" class="form-control" rows="2"
+                                                placeholder="Sababu ya mabadiliko"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary"
+                                            data-bs-dismiss="modal">Acha</button>
+                                        <button type="submit" class="btn btn-primary">
+                                            <i class="bi bi-save"></i> Badilisha
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <th:block th:replace="~{layout :: scripts}"></th:block>
+</body>
+
+</html>

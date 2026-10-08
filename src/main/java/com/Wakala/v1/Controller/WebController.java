@@ -1,12 +1,15 @@
 package com.Wakala.v1.Controller;
 
 import com.Wakala.v1.Dto.*;
+import com.Wakala.v1.Entity.NetworkRate;
 import com.Wakala.v1.Entity.Provider;
 import com.Wakala.v1.Entity.Transaction;
 import com.Wakala.v1.Entity.User;
 import com.Wakala.v1.Security.CurrentUser;
 import com.Wakala.v1.Service.*;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +18,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -30,6 +34,8 @@ public class WebController {
     private final ProviderService providerService;
     private final UserService userService;
     private final CommissionRuleService commissionRuleService;
+    private final OwnerRuleService ownerRuleService;
+    private final NetworkRateService networkRateService;
 
     // ═══════════════════════════════════════
     // DASHBOARD
@@ -370,20 +376,79 @@ public class WebController {
     // COMMISSION RULES
     // ═══════════════════════════════════════
 
-    @GetMapping("/web/commission-rules")
-    public String commissionRules(@CurrentUser User user, Model model) {
+    @GetMapping("/web/owner-rules")
+    public String ownerRules(@CurrentUser User user, Model model) {
         if (user.getRole() != User.Role.OWNER) {
             return "redirect:/dashboard";
         }
         model.addAttribute("user", user);
-        model.addAttribute("rules", commissionRuleService.getAllActive());
+        model.addAttribute("rules", ownerRuleService.getAllActive());
+        model.addAttribute("networkRates", networkRateService.getAllActive());
         model.addAttribute("providers", providerService.getAllActive());
         model.addAttribute("transactionTypes", new Transaction.TransactionType[] {
-                Transaction.TransactionType.LIPA_CASH_OUT,
-                Transaction.TransactionType.TILL_CASH_OUT,
-                Transaction.TransactionType.BANK_CONTROL_NUMBER
+                Transaction.TransactionType.LIPA_CASH_OUT
         });
-        return "commission-rules";
+        return "owner-rules";
+    }
+
+    @PostMapping("/web/owner-rules")
+    public String createOwnerRule(@RequestParam Long providerId,
+            @RequestParam Transaction.TransactionType transactionType,
+            @RequestParam BigDecimal minAmount,
+            @RequestParam(required = false) BigDecimal maxAmount,
+            @RequestParam BigDecimal ownerCommission,
+            @RequestParam(required = false) String effectiveFrom,
+            @RequestParam(required = false) String notes,
+            @CurrentUser User user,
+            RedirectAttributes ra) {
+        try {
+            LocalDate from = (effectiveFrom != null && !effectiveFrom.isBlank())
+                    ? LocalDate.parse(effectiveFrom)
+                    : LocalDate.now();
+
+            OwnerRuleRequest req = new OwnerRuleRequest(
+                    providerId, transactionType,
+                    minAmount, maxAmount,
+                    ownerCommission,
+                    from, notes);
+            ownerRuleService.create(req, user.getId());
+            ra.addFlashAttribute("success", "Owner rule imeundwa!");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
+        }
+        return "redirect:/web/owner-rules";
+    }
+
+    @PostMapping("/web/owner-rules/{id}/supersede")
+    public String supersedeOwnerRule(@PathVariable Long id,
+            @RequestParam BigDecimal ownerCommission,
+            @RequestParam String effectiveFrom,
+            @RequestParam(required = false) String notes,
+            @CurrentUser User user,
+            RedirectAttributes ra) {
+        try {
+            UpdateOwnerRuleRequest req = new UpdateOwnerRuleRequest(
+                    id, ownerCommission,
+                    LocalDate.parse(effectiveFrom), notes);
+            ownerRuleService.supersede(req, user.getId());
+            ra.addFlashAttribute("success", "Rates zimebadilishwa!");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
+        }
+        return "redirect:/web/owner-rules";
+    }
+
+    @PostMapping("/web/owner-rules/{id}/deactivate")
+    public String deactivateOwnerRule(@PathVariable Long id,
+            @CurrentUser User user,
+            RedirectAttributes ra) {
+        try {
+            ownerRuleService.deactivate(id, user.getId());
+            ra.addFlashAttribute("success", "Rule imefungwa!");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
+        }
+        return "redirect:/web/owner-rules";
     }
 
     @PostMapping("/web/commission-rules")
@@ -605,5 +670,31 @@ public class WebController {
             ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
         }
         return "redirect:/web/expenses";
+    }
+
+    @GetMapping("/web/owner-rules/preview")
+    @ResponseBody
+    public ResponseEntity<?> previewNetworkRate(
+            @RequestParam Long providerId,
+            @RequestParam Transaction.TransactionType type,
+            @RequestParam BigDecimal amount) {
+        try {
+            NetworkRate rate = networkRateService.findApplicableRate(providerId, type, amount);
+            Map<String, Object> result = new HashMap<>();
+            result.put("exists", true);
+            result.put("networkCommission", rate.getNetworkCommission());
+            result.put("minAmount", rate.getMinAmount());
+            result.put("maxAmount", rate.getMaxAmount());
+            result.put("effectiveFrom", rate.getEffectiveFrom().toString());
+            result.put("effectiveTo", rate.getEffectiveTo() != null
+                    ? rate.getEffectiveTo().toString()
+                    : null);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            Map<String, Object> result = new HashMap<>();
+            result.put("exists", false);
+            result.put("message", e.getMessage());
+            return ResponseEntity.ok(result);
+        }
     }
 }

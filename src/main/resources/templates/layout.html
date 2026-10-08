@@ -364,9 +364,8 @@
                 </a>
             </li>
             <li class="nav-item" th:if="${user != null and user.role.name() == 'OWNER'}">
-                <a href="/web/commission-rules" th:classappend="${active == 'commission-rules'} ? 'active' : ''"
-                    class="nav-link">
-                    <i class="bi bi-sliders"></i> Commission Rules
+                <a href="/web/owner-rules" th:classappend="${active == 'owner-rules'} ? 'active' : ''" class="nav-link">
+                    <i class="bi bi-sliders"></i> Owner Rules
                 </a>
             </li>
             <li class="nav-item" th:if="${user != null and user.role.name() == 'OWNER'}">
