@@ -74,10 +74,26 @@
                     </div>
                 </div>
 
-                <!-- Orodha ya Watumiaji -->
-                <h4 class="mb-3 animate-in">
-                    <i class="bi bi-list-ul text-primary"></i> Watumiaji Wote
-                </h4>
+                <!-- Filter Tabs -->
+                <div class="d-flex justify-content-between align-items-center mb-3 animate-in">
+                    <h4 class="mb-0">
+                        <i class="bi bi-list-ul text-primary"></i> Watumiaji
+                    </h4>
+                    <div class="btn-group" role="group">
+                        <a th:href="@{/web/users(filter='active')}"
+                           class="btn btn-modern"
+                           th:classappend="${filter == 'active'} ? 'btn-primary-modern' : 'btn-outline-primary'">
+                            <i class="bi bi-person-check"></i> Hai
+                        </a>
+                        <a th:href="@{/web/users(filter='all')}"
+                           class="btn btn-modern"
+                           th:classappend="${filter == 'all'} ? 'btn-primary-modern' : 'btn-outline-primary'">
+                            <i class="bi bi-archive"></i> Wote
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Jedwali -->
                 <div class="table-responsive">
                     <table class="table table-modern animate-in">
                         <thead>
@@ -87,14 +103,17 @@
                                 <th>Jina Kamili</th>
                                 <th>Simu</th>
                                 <th>Role</th>
+                                <th>Hali</th>
                                 <th>Vitendo</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr th:each="u, iter : ${users}">
+                            <tr th:each="u, iter : ${users}"
+                                th:classappend="${!u.active} ? 'table-secondary opacity-75' : ''">
                                 <td th:text="${iter.index + 1}"></td>
                                 <td>
-                                    <i class="bi bi-person-circle text-primary"></i>
+                                    <i class="bi bi-person-circle"
+                                       th:classappend="${u.active} ? 'text-primary' : 'text-muted'"></i>
                                     <strong th:text="${u.username}"></strong>
                                 </td>
                                 <td th:text="${u.fullName}"></td>
@@ -108,21 +127,44 @@
                                         th:text="${u.role}"></span>
                                 </td>
                                 <td>
-                                    <!-- Delete button — haipatikani kwa current user -->
-                                    <form method="post" th:action="'/web/users/' + ${u.id} + '/delete'"
-                                        style="display: inline;" th:if="${u.id != user.id}"
-                                        onsubmit="return confirm('Una uhakika wa kufuta mtumiaji huyu?')">
+                                    <span th:if="${u.active}" class="badge bg-success">
+                                        <i class="bi bi-check-circle"></i> Active
+                                    </span>
+                                    <span th:if="${!u.active}" class="badge bg-secondary">
+                                        <i class="bi bi-archive"></i> Imefutwa
+                                    </span>
+                                </td>
+                                <td>
+                                    <!-- ACTIVE USER: kitufe cha Futa -->
+                                    <form th:if="${u.active and u.id != user.id}"
+                                          method="post"
+                                          th:action="'/web/users/' + ${u.id} + '/delete'"
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Una uhakika wa kumwondoa mtumiaji huyu? Audit logs zitabaki salama.')">
                                         <button type="submit" class="btn btn-sm btn-outline-danger rounded-pill">
                                             <i class="bi bi-trash"></i> Futa
                                         </button>
                                     </form>
-                                    <span th:if="${u.id == user.id}" class="text-muted small">
+
+                                    <!-- DELETED USER: kitufe cha Rudisha -->
+                                    <form th:if="${!u.active}"
+                                          method="post"
+                                          th:action="'/web/users/' + ${u.id} + '/restore'"
+                                          style="display: inline;"
+                                          onsubmit="return confirm('Kurudisha mtumiaji huyu?')">
+                                        <button type="submit" class="btn btn-sm btn-outline-success rounded-pill">
+                                            <i class="bi bi-arrow-counterclockwise"></i> Rudisha
+                                        </button>
+                                    </form>
+
+                                    <!-- Wewe mwenyewe -->
+                                    <span th:if="${u.active and u.id == user.id}" class="text-muted small">
                                         <i class="bi bi-person-check"></i> Ni wewe
                                     </span>
                                 </td>
                             </tr>
                             <tr th:if="${users.isEmpty()}">
-                                <td colspan="6" class="text-center py-5 text-muted">
+                                <td colspan="7" class="text-center py-5 text-muted">
                                     <i class="bi bi-inbox" style="font-size: 3rem; color: #cbd5e1;"></i>
                                     <p class="mt-2">Hakuna watumiaji bado.</p>
                                 </td>

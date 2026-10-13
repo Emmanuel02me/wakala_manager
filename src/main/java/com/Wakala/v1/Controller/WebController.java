@@ -51,11 +51,9 @@ public class WebController {
         model.addAttribute("todaySession", todaySession);
 
         if (todaySession != null) {
-            // Kikao cha leo kipo
             ReconciliationResponse recon = reconciliationService.calculate(todaySession.id());
             model.addAttribute("reconciliation", recon);
         } else {
-            // Hakuna kikao cha leo — onyesha last closed
             LastClosedSessionResponse lastClosed = sessionService.getLastClosedSession();
             if (lastClosed.exists()) {
                 model.addAttribute("lastClosed", lastClosed);
@@ -64,7 +62,6 @@ public class WebController {
             }
         }
 
-        // Onyesha sessions 5 za hivi karibuni (kwa wote)
         model.addAttribute("recentSessions", sessionService.getAll().stream().limit(5).toList());
 
         return "dashboard";
@@ -155,10 +152,8 @@ public class WebController {
             @CurrentUser User user,
             RedirectAttributes ra) {
         try {
-            // Extract openingCash
             BigDecimal openingCash = new BigDecimal(allParams.getOrDefault("openingCash", "0"));
 
-            // Extract float openings
             List<FloatOpeningRequest> floatReqs = new ArrayList<>();
             for (int i = 0; i < 20; i++) {
                 String balanceKey = "floatOpenings[" + i + "].openingBalance";
@@ -266,7 +261,6 @@ public class WebController {
         model.addAttribute("user", user);
         model.addAttribute("recon", reconciliationService.calculate(sessionId));
 
-        // Ongeza analysis kwa OWNER
         if (user.getRole() == User.Role.OWNER) {
             try {
                 model.addAttribute("analysis", shortageAnalysisService.analyze(sessionId));
@@ -281,12 +275,20 @@ public class WebController {
     // USERS (OWNER pekee)
     // ═══════════════════════════════════════
     @GetMapping("/web/users")
-    public String users(@CurrentUser User user, Model model) {
+    public String users(@CurrentUser User user,
+            @RequestParam(required = false, defaultValue = "active") String filter,
+            Model model) {
         if (user.getRole() != User.Role.OWNER) {
             return "redirect:/dashboard";
         }
         model.addAttribute("user", user);
-        model.addAttribute("users", userService.getAllUsers());
+        model.addAttribute("filter", filter);
+
+        if ("all".equals(filter)) {
+            model.addAttribute("users", userService.getAllUsersIncludingDeleted());
+        } else {
+            model.addAttribute("users", userService.getAllUsers());
+        }
         return "users";
     }
 
@@ -314,7 +316,7 @@ public class WebController {
     }
 
     // ═══════════════════════════════════════
-    // USERS — DELETE
+    // USERS — SOFT DELETE
     // ═══════════════════════════════════════
     @PostMapping("/web/users/{id}/delete")
     public String deleteUser(@PathVariable Long id,
@@ -327,7 +329,8 @@ public class WebController {
 
         try {
             userService.deleteUser(id, currentUser.getId());
-            ra.addFlashAttribute("success", "Mtumiaji amefutwa kikamilifu!");
+            ra.addFlashAttribute("success",
+                    "Mtumiaji ameondolewa. Audit logs zake zinabaki salama.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
         }
@@ -335,7 +338,28 @@ public class WebController {
     }
 
     // ═══════════════════════════════════════
-    // PROFILE (watumiaji wote)
+    // USERS — RESTORE
+    // ═══════════════════════════════════════
+    @PostMapping("/web/users/{id}/restore")
+    public String restoreUser(@PathVariable Long id,
+            @CurrentUser User currentUser,
+            RedirectAttributes ra) {
+        if (currentUser.getRole() != User.Role.OWNER) {
+            ra.addFlashAttribute("error", "Huna ruhusa");
+            return "redirect:/dashboard";
+        }
+
+        try {
+            userService.restoreUser(id, currentUser.getId());
+            ra.addFlashAttribute("success", "Mtumiaji amerudishwa kikamilifu!");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
+        }
+        return "redirect:/web/users?filter=all";
+    }
+
+    // ═══════════════════════════════════════
+    // PROFILE
     // ═══════════════════════════════════════
     @GetMapping("/web/profile")
     public String profile(@CurrentUser User user, Model model) {
@@ -373,9 +397,8 @@ public class WebController {
     }
 
     // ═══════════════════════════════════════
-    // COMMISSION RULES
+    // OWNER RULES
     // ═══════════════════════════════════════
-
     @GetMapping("/web/owner-rules")
     public String ownerRules(@CurrentUser User user, Model model) {
         if (user.getRole() != User.Role.OWNER) {
@@ -579,7 +602,6 @@ public class WebController {
             List<ExpenseResponse> expenses = expenseService.getBySession(todaySession.id());
             model.addAttribute("expenses", expenses);
 
-            // Jumla ya matumizi
             BigDecimal total = expenses.stream()
                     .filter(e -> "APPROVED".equals(e.status()))
                     .map(ExpenseResponse::amount)
@@ -587,7 +609,6 @@ public class WebController {
             model.addAttribute("totalExpenses", total);
         }
 
-        // Pending expenses kwa OWNER
         if (user.getRole() == User.Role.OWNER) {
             model.addAttribute("pendingExpenses", expenseService.getPending());
         } else {

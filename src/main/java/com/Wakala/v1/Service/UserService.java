@@ -1,5 +1,6 @@
 package com.Wakala.v1.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -24,10 +25,26 @@ public class UserService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
+    // ═══════════════════════════════════════════════════════════
+    // CREATE
+    // ═══════════════════════════════════════════════════════════
     @Transactional
     public UserResponse createUser(UserRequest request) {
+        // Zuia SUPER_ADMIN kuundwa kupitia UI
+        if (request.role() == User.Role.SUPER_ADMIN) {
+            throw new BusinessException("Hauwezi kuunda System Admin");
+        }
+
+        // Username unique — kama ipo (active au deleted) zuia
         if (userRepository.existsByUsername(request.username())) {
-            throw new IllegalArgumentException("Username tayari upo: " + request.username());
+            // Angalia kama ni user aliyeondolewa
+            User existing = userRepository.findByUsername(request.username()).orElse(null);
+            if (existing != null && !existing.isActive()) {
+                throw new BusinessException(
+                        "Username '" + request.username() + "' ilitumika na mtumiaji aliyeondolewa. " +
+                                "Rudisha mtumiaji huyo kwanza au chagua jina lingine.");
+            }
+            throw new BusinessException("Username tayari inatumika: " + request.username());
         }
 
         User user = User.builder()
@@ -42,24 +59,34 @@ public class UserService {
         return toResponse(userRepository.save(user));
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // READ
+    // ═══════════════════════════════════════════════════════════
     public User findById(Long id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Mtumiaji huyu hapatikani: " + id));
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Mtumiaji huyu hapatikani: " + id));
     }
 
     public UserResponse getUser(Long id) {
         return toResponse(findById(id));
     }
 
+    /** Orodha ya watumiaji HAI pekee — inatumika kwenye UI ya kawaida */
     public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream().map(this::toResponse).toList();
+        return userRepository.findByActiveTrueOrderByCreatedAtDesc()
+                .stream().map(this::toResponse).toList();
     }
 
-    private UserResponse toResponse(User u) {
-        return new UserResponse(u.getId(), u.getUsername(), u.getFullName(),
-                u.getPhone(), u.getRole().name());
+    /** Orodha ya WOTE — pamoja na waliofutwa. Kwa OWNER pekee. */
+    public List<UserResponse> getAllUsersIncludingDeleted() {
+        return userRepository.findAllByOrderByCreatedAtDesc()
+                .stream().map(this::toResponse).toList();
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // SOFT DELETE — haifuti kabisa, inaweka active=false
+    // ═══════════════════════════════════════════════════════════
     @Transactional
     public void deleteUser(Long userId, Long currentUserId) {
         if (userId.equals(currentUserId)) {
@@ -69,17 +96,46 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User haipatikani"));
 
-        // Kama ni OWNER wa mwisho, hawezi kufutwa
+        if (!user.isActive()) {
+            throw new BusinessException("Mtumiaji huyu ameondolewa tayari");
+        }
+
+        // Kinga: OWNER wa mwisho ALIYE HAI hawezi kuondolewa
         if (user.getRole() == User.Role.OWNER) {
-            long ownerCount = userRepository.countByRole(User.Role.OWNER);
-            if (ownerCount <= 1) {
-                throw new BusinessException("Hauwezi kufuta OWNER wa mwisho");
+            long activeOwners = userRepository.countByRoleAndActiveTrue(User.Role.OWNER);
+            if (activeOwners <= 1) {
+                throw new BusinessException("Hauwezi kuondoa OWNER wa mwisho aliye hai");
             }
         }
 
-        userRepository.delete(user);
+        // ✅ SOFT DELETE — audit_logs FK inabaki intact
+        user.setActive(false);
+        user.setDeletedAt(LocalDateTime.now());
+        user.setDeletedBy(currentUserId);
+        userRepository.save(user);
     }
 
+    // ═══════════════════════════════════════════════════════════
+    // RESTORE — kurudisha user aliyeondolewa
+    // ═══════════════════════════════════════════════════════════
+    @Transactional
+    public void restoreUser(Long userId, Long currentUserId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User haipatikani"));
+
+        if (user.isActive()) {
+            throw new BusinessException("Mtumiaji huyu hayupo kwenye hali ya kuondolewa");
+        }
+
+        user.setActive(true);
+        user.setDeletedAt(null);
+        user.setDeletedBy(null);
+        userRepository.save(user);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // UPDATE
+    // ═══════════════════════════════════════════════════════════
     @Transactional
     public UserResponse updateProfile(Long userId, UpdateUserRequest req) {
         User user = userRepository.findById(userId)
@@ -104,5 +160,19 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(req.newPassword()));
         userRepository.save(user);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // HELPER
+    // ═══════════════════════════════════════════════════════════
+    private UserResponse toResponse(User u) {
+        return new UserResponse(
+                u.getId(),
+                u.getUsername(),
+                u.getFullName(),
+                u.getPhone(),
+                u.getRole().name(),
+                u.isActive(),
+                u.getDeletedAt());
     }
 }

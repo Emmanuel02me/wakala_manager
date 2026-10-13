@@ -19,21 +19,18 @@ public class UserDetailsServiceImpl implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        User user = userRepository.findByUsername(username)
+        // Tafuta ACTIVE user pekee
+        User user = userRepository.findByUsernameAndActiveTrue(username)
                 .orElseThrow(() -> new UsernameNotFoundException(
-                        "User haipatikani: " + username));
-
-        if (!user.isActive()) {
-            throw new UsernameNotFoundException("Akaunti hii imefungwa");
-        }
+                        "User haipatikani au akaunti imefungwa: " + username));
 
         return org.springframework.security.core.userdetails.User.builder()
                 .username(user.getUsername())
                 .password(user.getPassword())
                 .authorities(List.of(
-                        new SimpleGrantedAuthority("ROLE_" + user.getRole().name())
-                ))
-                .accountLocked(!user.isActive())
+                        new SimpleGrantedAuthority("ROLE_" + user.getRole().name())))
+                .accountLocked(false) // active = true, kwa hiyo false
+                .disabled(false) // active = true
                 .build();
     }
 }
