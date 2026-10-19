@@ -124,28 +124,36 @@ public class WebController {
     // SESSIONS
     // ═══════════════════════════════════════
     @GetMapping("/web/sessions")
-    public String sessions(@CurrentUser User user, Model model) {
-        model.addAttribute("user", user);
+public String sessions(@CurrentUser User user, Model model) {
+    model.addAttribute("user", user);
 
-        List<SessionResponse> allSessions = sessionService.getAll();
-        model.addAttribute("sessions", allSessions);
-        model.addAttribute("todaySession", sessionService.getTodaySession());
-        model.addAttribute("providers", providerService.getAllActive());
+    List<SessionResponse> allSessions = sessionService.getAll();
+    model.addAttribute("sessions", allSessions);
+    model.addAttribute("todaySession", sessionService.getTodaySession());
+    model.addAttribute("providers", providerService.getAllActive());
 
-        if (user.getRole() == User.Role.OWNER) {
-            long totalSessions = allSessions.size();
-            long openSessions = allSessions.stream()
-                    .filter(s -> "OPEN".equals(s.status()))
-                    .count();
-            long closedSessions = totalSessions - openSessions;
-
-            model.addAttribute("totalSessions", totalSessions);
-            model.addAttribute("openSessions", openSessions);
-            model.addAttribute("closedSessions", closedSessions);
-        }
-
-        return "sessions";
+    // ✅ MPYA: Last closed session info — kwa ajili ya open form
+    LastClosedSessionResponse lastClosed = sessionService.getLastClosedSession();
+    model.addAttribute("lastClosed", lastClosed);
+    if (lastClosed.exists()) {
+        ReconciliationResponse lastRecon = reconciliationService.calculate(lastClosed.sessionId());
+        model.addAttribute("lastClosedRecon", lastRecon);
     }
+
+    if (user.getRole() == User.Role.OWNER) {
+        long totalSessions = allSessions.size();
+        long openSessions = allSessions.stream()
+                .filter(s -> "OPEN".equals(s.status()) || "REOPENED".equals(s.status()))
+                .count();
+        long closedSessions = totalSessions - openSessions;
+
+        model.addAttribute("totalSessions", totalSessions);
+        model.addAttribute("openSessions", openSessions);
+        model.addAttribute("closedSessions", closedSessions);
+    }
+
+    return "sessions";
+}
 
     @PostMapping("/web/sessions/open")
     public String openSession(@RequestParam Map<String, String> allParams,
@@ -182,6 +190,33 @@ public class WebController {
                     notes);
             sessionService.openSession(req, user);
             ra.addFlashAttribute("success", "Kikao kimefunguliwa kikamilifu!");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
+        }
+        return "redirect:/web/sessions";
+    }
+
+    // ═══════════════════════════════════════
+    // SESSIONS — ADD FLOAT MID-SESSION
+    // ═══════════════════════════════════════
+    @PostMapping("/web/sessions/{id}/floats/add")
+    public String addFloatToSession(@PathVariable Long id,
+            @RequestParam Long providerId,
+            @RequestParam BigDecimal openingBalance,
+            @RequestParam String sourceType,
+            @RequestParam(required = false) Long sourceProviderId,
+            @RequestParam String note,
+            @CurrentUser User user,
+            RedirectAttributes ra) {
+        try {
+            AddFloatRequest.FloatSourceType srcType = AddFloatRequest.FloatSourceType.valueOf(sourceType);
+
+            AddFloatRequest req = new AddFloatRequest(
+                    providerId, openingBalance, srcType, sourceProviderId, note);
+
+            sessionService.addFloatToOpenSession(id, req, user);
+            ra.addFlashAttribute("success",
+                    "Float imeongezwa kikamilifu! Marekebisho yameandikwa kwenye audit log.");
         } catch (Exception e) {
             ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
         }
