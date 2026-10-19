@@ -60,6 +60,17 @@ public class WebController {
                 ReconciliationResponse lastRecon = reconciliationService.calculate(lastClosed.sessionId());
                 model.addAttribute("lastReconciliation", lastRecon);
             }
+
+            // kagua kikao kilichokwama
+            SessionResponse anyOpen = sessionService.getAnyOpenSession();
+            if (anyOpen != null) {
+                long daysOld = java.time.temporal.ChronoUnit.DAYS.between(
+                        anyOpen.sessionDate(), LocalDate.now());
+                if (daysOld > 0) {
+                    model.addAttribute("stuckSession", anyOpen);
+                    model.addAttribute("stuckDaysOld", daysOld);
+                }
+            }
         }
 
         model.addAttribute("recentSessions", sessionService.getAll().stream().limit(5).toList());
@@ -124,36 +135,49 @@ public class WebController {
     // SESSIONS
     // ═══════════════════════════════════════
     @GetMapping("/web/sessions")
-public String sessions(@CurrentUser User user, Model model) {
-    model.addAttribute("user", user);
+    public String sessions(@CurrentUser User user, Model model) {
+        model.addAttribute("user", user);
 
-    List<SessionResponse> allSessions = sessionService.getAll();
-    model.addAttribute("sessions", allSessions);
-    model.addAttribute("todaySession", sessionService.getTodaySession());
-    model.addAttribute("providers", providerService.getAllActive());
+        List<SessionResponse> allSessions = sessionService.getAll();
+        model.addAttribute("sessions", allSessions);
+        model.addAttribute("todaySession", sessionService.getTodaySession());
+        model.addAttribute("providers", providerService.getAllActive());
 
-    // ✅ MPYA: Last closed session info — kwa ajili ya open form
-    LastClosedSessionResponse lastClosed = sessionService.getLastClosedSession();
-    model.addAttribute("lastClosed", lastClosed);
-    if (lastClosed.exists()) {
-        ReconciliationResponse lastRecon = reconciliationService.calculate(lastClosed.sessionId());
-        model.addAttribute("lastClosedRecon", lastRecon);
+        LastClosedSessionResponse lastClosed = sessionService.getLastClosedSession();
+        model.addAttribute("lastClosed", lastClosed);
+        if (lastClosed.exists()) {
+            ReconciliationResponse lastRecon = reconciliationService.calculate(lastClosed.sessionId());
+            model.addAttribute("lastClosedRecon", lastRecon);
+        }
+
+        // kagua kikao kilichokwama
+        SessionResponse todaySess = sessionService.getTodaySession();
+        if (todaySess == null) {
+            SessionResponse anyOpen = sessionService.getAnyOpenSession();
+            if (anyOpen != null) {
+                long daysOld = java.time.temporal.ChronoUnit.DAYS.between(
+                        anyOpen.sessionDate(), LocalDate.now());
+                if (daysOld > 0) {
+                    model.addAttribute("stuckSession", anyOpen);
+                    model.addAttribute("stuckDaysOld", daysOld);
+                }
+            }
+        }
+
+        if (user.getRole() == User.Role.OWNER) {
+            long totalSessions = allSessions.size();
+            long openSessions = allSessions.stream()
+                    .filter(s -> "OPEN".equals(s.status()) || "REOPENED".equals(s.status()))
+                    .count();
+            long closedSessions = totalSessions - openSessions;
+
+            model.addAttribute("totalSessions", totalSessions);
+            model.addAttribute("openSessions", openSessions);
+            model.addAttribute("closedSessions", closedSessions);
+        }
+
+        return "sessions";
     }
-
-    if (user.getRole() == User.Role.OWNER) {
-        long totalSessions = allSessions.size();
-        long openSessions = allSessions.stream()
-                .filter(s -> "OPEN".equals(s.status()) || "REOPENED".equals(s.status()))
-                .count();
-        long closedSessions = totalSessions - openSessions;
-
-        model.addAttribute("totalSessions", totalSessions);
-        model.addAttribute("openSessions", openSessions);
-        model.addAttribute("closedSessions", closedSessions);
-    }
-
-    return "sessions";
-}
 
     @PostMapping("/web/sessions/open")
     public String openSession(@RequestParam Map<String, String> allParams,
@@ -285,6 +309,48 @@ public String sessions(@CurrentUser User user, Model model) {
         model.addAttribute("expenses", expenseService.getBySession(id));
         model.addAttribute("recon", reconciliationService.calculate(id));
         return "session-detail";
+    }
+
+    // ═══════════════════════════════════════
+    // SESSIONS — FORCE CLOSE (OWNER pekee)
+    // ═══════════════════════════════════════
+    @PostMapping("/web/sessions/{id}/force-close")
+    public String forceCloseSession(@PathVariable Long id,
+            @RequestParam BigDecimal closingCash,
+            @RequestParam(required = false) String notes,
+            @RequestParam Map<String, String> allParams,
+            @CurrentUser User user,
+            RedirectAttributes ra) {
+        if (user.getRole() != User.Role.OWNER) {
+            ra.addFlashAttribute("error", "Ni OWNER pekee anayeweza kufunga kikao kwa mkono");
+            return "redirect:/web/sessions";
+        }
+
+        try {
+            List<FloatClosingRequest> floatClosings = new ArrayList<>();
+            for (int i = 0; i < 20; i++) {
+                String balanceKey = "floatClosings[" + i + "].closingBalance";
+                String providerKey = "floatClosings[" + i + "].providerId";
+                if (allParams.containsKey(balanceKey) && allParams.containsKey(providerKey)) {
+                    String balanceStr = allParams.get(balanceKey);
+                    String providerStr = allParams.get(providerKey);
+                    if (balanceStr != null && !balanceStr.isBlank()
+                            && providerStr != null && !providerStr.isBlank()) {
+                        floatClosings.add(new FloatClosingRequest(
+                                Long.parseLong(providerStr),
+                                new BigDecimal(balanceStr)));
+                    }
+                }
+            }
+
+            CloseSessionRequest req = new CloseSessionRequest(closingCash, floatClosings, notes);
+            sessionService.forceCloseSession(id, req, user);
+            ra.addFlashAttribute("success",
+                    "Kikao kimefungwa kwa mkono! Marekebisho yameandikwa kwenye audit log.");
+        } catch (Exception e) {
+            ra.addFlashAttribute("error", "Kosa: " + e.getMessage());
+        }
+        return "redirect:/web/sessions";
     }
 
     // ═══════════════════════════════════════
