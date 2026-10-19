@@ -3,6 +3,8 @@ package com.Wakala.v1.Repositories;
 import com.Wakala.v1.Entity.DailySession;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
@@ -30,4 +32,11 @@ public interface DailySessionRepository extends JpaRepository<DailySession, Long
 
     @EntityGraph(attributePaths = { "openedBy", "closedBy" })
     Optional<DailySession> findTopByStatusOrderBySessionDateDesc(DailySession.SessionStatus status);
+
+    // vikao vyote vilivyo wazi (OPEN au REOPENED), bila kujali tarehe
+    @EntityGraph(attributePaths = { "openedBy", "closedBy" })
+    @Query("SELECT s FROM DailySession s " +
+            "WHERE s.status IN ('OPEN', 'REOPENED') " +
+            "ORDER BY s.sessionDate ASC, s.id ASC")
+    List<DailySession> findAllOpen();
 }
