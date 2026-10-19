@@ -32,11 +32,15 @@
                     </div>
 
                     <!-- Last Closed Session -->
-                    <div th:if="${lastClosed != null}" class="card card-custom mb-4 animate-in">
+                    <div th:if="${lastClosed != null}" class="card card-custom mb-4 animate-in"
+                        th:style="${lastReconciliation != null and lastReconciliation.overallStatus != 'BALANCED' ? 'border-left: 5px solid #ef4444' : 'border-left: 5px solid #10b981'}">
                         <div class="card-header d-flex justify-content-between align-items-center">
                             <span>
                                 <i class="bi bi-clock-history text-info"></i>
                                 <strong>Kikao cha Mwisho — <span th:text="${lastClosed.sessionDate}"></span></strong>
+                                <span class="badge-status ms-2"
+                                    th:classappend="${lastReconciliation.overallStatus == 'BALANCED'} ? 'bg-success text-white' : 'bg-danger text-white'"
+                                    th:text="${lastReconciliation.overallStatus}"></span>
                             </span>
                             <a th:href="'/web/reconciliation/' + ${lastClosed.sessionId}"
                                 class="btn btn-sm btn-outline-primary rounded-pill">
@@ -44,6 +48,21 @@
                             </a>
                         </div>
                         <div class="card-body">
+                            <!-- ✅ TOTAL ya jana — kubwa, wazi -->
+                            <div class="text-center mb-3 p-3"
+                                style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px;">
+                                <p class="text-muted small mb-1">TOTAL YA MWISHO (Cash + Floats)</p>
+                                <h2 class="mb-0 text-primary"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(lastClosed.closingTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h2>
+                                <small class="text-muted">
+                                    Cash: TZS <span
+                                        th:text="${#numbers.formatDecimal(lastClosed.closingCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    + Floats: TZS <span
+                                        th:text="${#numbers.formatDecimal(lastClosed.closingTotalValue.subtract(lastClosed.closingCash), 1, 'COMMA', 0, 'POINT')}"></span>
+                                </small>
+                            </div>
+
                             <div class="row">
                                 <div class="col-md-3">
                                     <p class="text-muted small mb-1">Faida</p>
@@ -52,9 +71,9 @@
                                     </h5>
                                 </div>
                                 <div class="col-md-3">
-                                    <p class="text-muted small mb-1">Closing Cash</p>
-                                    <h5
-                                        th:text="'TZS ' + ${#numbers.formatDecimal(lastClosed.closingCash, 1, 'COMMA', 0, 'POINT')}">
+                                    <p class="text-muted small mb-1">Matumizi</p>
+                                    <h5 class="text-danger"
+                                        th:text="'- TZS ' + ${#numbers.formatDecimal(lastReconciliation.totalExpenses, 1, 'COMMA', 0, 'POINT')}">
                                     </h5>
                                 </div>
                                 <div class="col-md-3">
@@ -62,11 +81,26 @@
                                     <h5 th:text="${lastReconciliation.totalTransactionCount}"></h5>
                                 </div>
                                 <div class="col-md-3">
-                                    <p class="text-muted small mb-1">Hali</p>
-                                    <span class="badge-status"
-                                        th:classappend="${lastReconciliation.overallStatus == 'BALANCED'} ? 'bg-success text-white' : 'bg-danger text-white'"
-                                        th:text="${lastReconciliation.overallStatus}"></span>
+                                    <p class="text-muted small mb-1">Tofauti</p>
+                                    <h5 th:if="${lastClosed.cashDifference != null and lastClosed.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0 and (lastClosed.totalFloatDifference == null or lastClosed.totalFloatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0)}"
+                                        class="text-success">
+                                        <i class="bi bi-check-circle"></i> Sawa
+                                    </h5>
+                                    <h5 th:if="${lastClosed.cashDifference != null and (lastClosed.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) > 0 or (lastClosed.totalFloatDifference != null and lastClosed.totalFloatDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) > 0))}"
+                                        class="text-danger">
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                        <span
+                                            th:text="'TZS ' + ${#numbers.formatDecimal(lastClosed.cashDifference != null ? lastClosed.cashDifference : T(java.math.BigDecimal).ZERO, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    </h5>
                                 </div>
+                            </div>
+
+                            <!-- Onyo kama jana ilikuwa na shida -->
+                            <div th:if="${lastReconciliation.overallStatus != 'BALANCED'}"
+                                class="alert alert-warning mt-3 mb-0 py-2">
+                                <i class="bi bi-exclamation-circle"></i>
+                                <strong>Kikao cha jana kilikuwa na makosa!</strong>
+                                Angalia ripoti kujua kilichotokea kabla ya kufungua kikao kipya.
                             </div>
                         </div>
                     </div>

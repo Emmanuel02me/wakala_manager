@@ -55,6 +55,66 @@
                     </div>
                 </div>
 
+                <!-- ═══ LAST CLOSED SESSION — MUHTASARI WA JANA ═══ -->
+                <div th:if="${lastClosed != null and lastClosed.exists}" class="card card-custom mb-4 animate-in"
+                    th:style="${lastClosed.hadIssues ? 'border-left: 5px solid #f59e0b' : 'border-left: 5px solid #10b981'}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-clock-history"
+                                th:classappend="${lastClosed.hadIssues} ? 'text-warning' : 'text-success'"></i>
+                            <strong>Hali ya Kikao cha Jana — <span th:text="${lastClosed.sessionDate}"></span></strong>
+                        </span>
+                        <span class="badge-status"
+                            th:classappend="${lastClosed.overallStatus == 'BALANCED'} ? 'bg-success text-white' : (${lastClosed.overallStatus == 'SHORTAGE'} ? 'bg-danger text-white' : 'bg-warning text-dark')"
+                            th:text="${lastClosed.overallStatus}"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <p class="text-muted small mb-1"><i class="bi bi-calculator"></i> TOTAL ya Jana</p>
+                                <h4 class="mb-0"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(lastClosed.closingTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h4>
+                                <small class="text-muted">
+                                    Cash: TZS <span
+                                        th:text="${#numbers.formatDecimal(lastClosed.closingCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    + Floats: TZS <span
+                                        th:text="${#numbers.formatDecimal(lastClosed.closingTotalValue.subtract(lastClosed.closingCash), 1, 'COMMA', 0, 'POINT')}"></span>
+                                </small>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted small mb-1"><i class="bi bi-exclamation-triangle"></i> Tofauti
+                                    (Shortage/Overage)</p>
+                                <h5 th:if="${lastClosed.cashDifference != null}"
+                                    th:classappend="${lastClosed.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0} ? 'text-success' : 'text-danger'">
+                                    Cash: <span
+                                        th:text="${lastClosed.cashDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0} ? 'Sawa' : 'TZS ' + ${#numbers.formatDecimal(lastClosed.cashDifference, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </h5>
+                                <h6 class="mb-0"
+                                    th:if="${lastClosed.totalFloatDifference != null and lastClosed.totalFloatDifference.compareTo(T(java.math.BigDecimal).ZERO) != 0}"
+                                    th:classappend="${lastClosed.totalFloatDifference.compareTo(T(java.math.BigDecimal).ZERO) < 0} ? 'text-danger' : 'text-warning'">
+                                    Floats: TZS <span
+                                        th:text="${#numbers.formatDecimal(lastClosed.totalFloatDifference, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </h6>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted small mb-1"><i class="bi bi-info-circle"></i> Hali</p>
+                                <div th:if="${lastClosed.hadIssues}" class="alert alert-warning py-2 mb-0 small">
+                                    <i class="bi bi-exclamation-circle"></i>
+                                    <strong>Kuna makosa kwenye kikao cha jana!</strong>
+                                    Angalia ripoti kamili kabla ya kuanza leo.
+                                    <a th:href="'/web/reconciliation/' + ${lastClosed.sessionId}"
+                                        class="alert-link">Fungua Ripoti →</a>
+                                </div>
+                                <div th:if="${!lastClosed.hadIssues}" class="alert alert-success py-2 mb-0 small">
+                                    <i class="bi bi-check-circle"></i>
+                                    <strong>Kikao cha jana kilikamilika salama.</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- ═══ OPEN SESSION FORM (HAKUNA KIKAO) ═══ -->
                 <div th:if="${todaySession == null}" class="card card-custom mb-4 animate-in">
                     <div class="card-header">
@@ -111,6 +171,39 @@
                                     placeholder="Kama kuna maelezo mengine"></textarea>
                             </div>
 
+                            <!-- ✅ Total ya Kuanzia — itahesabiwa na JavaScript -->
+                            <div class="alert alert-info animate-in">
+                                <h6 class="mb-2"><i class="bi bi-calculator"></i> TOTAL UNAYOANZIA LEO:</h6>
+                                <h3 class="mb-1" id="openingTotalDisplay" style="color: #0dcaf0;">
+                                    TZS <span id="openingTotalValue">0</span>
+                                </h3>
+                                <small class="text-muted">
+                                    <i class="bi bi-info-circle"></i>
+                                    Total = Opening Cash + Floats zote. Itahesabiwa unapoweka namba.
+                                </small>
+                            </div>
+
+                            <script th:inline="javascript">
+                                function updateOpeningTotal() {
+                                    var cash = parseFloat(document.querySelector('input[name="openingCash"]')?.value) || 0;
+                                    var floatInputs = document.querySelectorAll('input[name*="floatOpenings"][name$=".openingBalance"]');
+                                    var floatsTotal = 0;
+                                    floatInputs.forEach(function (input) {
+                                        floatsTotal += parseFloat(input.value) || 0;
+                                    });
+                                    var total = cash + floatsTotal;
+                                    document.getElementById('openingTotalValue').textContent =
+                                        total.toLocaleString('en-US', { maximumFractionDigits: 0 });
+                                }
+                                document.addEventListener('DOMContentLoaded', function () {
+                                    document.querySelectorAll('input[name="openingCash"], input[name*="floatOpenings"][name$=".openingBalance"]')
+                                        .forEach(function (el) {
+                                            el.addEventListener('input', updateOpeningTotal);
+                                        });
+                                    updateOpeningTotal();
+                                });
+                            </script>
+
                             <button type="submit" class="btn btn-primary-modern btn-modern">
                                 <i class="bi bi-play-circle"></i> Fungua Kikao
                             </button>
@@ -144,7 +237,25 @@
                             <i class="bi bi-file-earmark-text"></i> Ripoti
                         </a>
                     </div>
+
+                    <!-- ✅ MPYA — Ongeza Float Iliyosahauka -->
+                    <div class="alert alert-info mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-info-circle"></i>
+                                <strong>Umesahau kuweka float ya provider?</strong>
+                                <p class="mb-0 small text-muted">
+                                    Unaweza kuongeza kama provider hana miamala bado leo.
+                                </p>
+                            </div>
+                            <button type="button" class="btn btn-primary-modern btn-modern" data-bs-toggle="modal"
+                                data-bs-target="#addFloatModal">
+                                <i class="bi bi-plus-circle"></i> Ongeza Float
+                            </button>
+                        </div>
+                    </div>
                     <div class="card-body">
+
                         <form method="post" th:action="'/web/sessions/' + ${todaySession.id} + '/close'">
                             <div class="row">
                                 <div class="col-md-6 mb-3">
@@ -175,6 +286,63 @@
                                 <label class="form-label fw-bold">Maelezo (hiari)</label>
                                 <textarea name="notes" class="form-control" rows="2"></textarea>
                             </div>
+
+                            <!-- ✅ Total ya Kufunga — itahesabiwa na JavaScript -->
+                            <div class="alert animate-in"
+                                th:style="'background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-left: 5px solid #3b82f6;'">
+                                <h6 class="mb-2"><i class="bi bi-calculator"></i> TOTAL UTAKAYOFUNGA:</h6>
+                                <h3 class="mb-1" id="closingTotalDisplay" style="color: #2563eb;">
+                                    TZS <span id="closingTotalValue">0</span>
+                                </h3>
+                                <small class="text-muted d-block mb-2">
+                                    <i class="bi bi-info-circle"></i>
+                                    Opening ilikuwa: <strong
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(todaySession.openingTotalValue, 1, 'COMMA', 0, 'POINT')}"></strong>
+                                </small>
+                                <div id="closingTotalDiff" class="small"></div>
+                            </div>
+
+                            <script th:inline="javascript">
+                                (function () {
+                                    var openingTotal = /*[[${todaySession.openingTotalValue}]]*/ 0;
+
+                                    function updateClosingTotal() {
+                                        var cash = parseFloat(document.querySelector('input[name="closingCash"]')?.value) || 0;
+                                        var floatInputs = document.querySelectorAll('input[name*="floatClosings"][name$=".closingBalance"]');
+                                        var floatsTotal = 0;
+                                        floatInputs.forEach(function (input) {
+                                            floatsTotal += parseFloat(input.value) || 0;
+                                        });
+                                        var total = cash + floatsTotal;
+                                        document.getElementById('closingTotalValue').textContent =
+                                            total.toLocaleString('en-US', { maximumFractionDigits: 0 });
+
+                                        // Onyesha tofauti na opening
+                                        var diff = total - openingTotal;
+                                        var diffEl = document.getElementById('closingTotalDiff');
+                                        if (Math.abs(diff) < 1) {
+                                            diffEl.innerHTML = '<span class="text-muted"><i class="bi bi-dash"></i> Bado hujaweka namba</span>';
+                                        } else if (diff > 0) {
+                                            diffEl.innerHTML = '<span class="text-warning"><i class="bi bi-arrow-up"></i> +TZS '
+                                                + diff.toLocaleString('en-US', { maximumFractionDigits: 0 })
+                                                + ' zaidi ya opening (faida/overage?)</span>';
+                                        } else {
+                                            diffEl.innerHTML = '<span class="text-danger"><i class="bi bi-arrow-down"></i> -TZS '
+                                                + Math.abs(diff).toLocaleString('en-US', { maximumFractionDigits: 0 })
+                                                + ' chini ya opening (shortage/matumizi)</span>';
+                                        }
+                                    }
+
+                                    document.addEventListener('DOMContentLoaded', function () {
+                                        document.querySelectorAll('input[name="closingCash"], input[name*="floatClosings"][name$=".closingBalance"]')
+                                            .forEach(function (el) {
+                                                el.addEventListener('input', updateClosingTotal);
+                                            });
+                                        updateClosingTotal();
+                                    });
+                                })();
+                            </script>
+
                             <button type="submit" class="btn btn-danger btn-modern"
                                 onclick="return confirm('Una uhakika wa kufunga kikao?')">
                                 <i class="bi bi-stop-circle"></i> Funga Kikao
@@ -194,8 +362,8 @@
                                 <th>Tarehe</th>
                                 <th>Aliyefungua</th>
                                 <th>Status</th>
-                                <th>Opening</th>
-                                <th>Closing</th>
+                                <th>Opening Total</th>
+                                <th>Closing Total</th>
                                 <th>Vitendo</th>
                             </tr>
                         </thead>
@@ -207,18 +375,21 @@
                                 </td>
                                 <td th:text="${s.openedBy != null ? s.openedBy : '—'}"></td>
                                 <td>
-                                    <!-- ✅ Status badge: OPEN, REOPENED, CLOSED -->
                                     <span class="badge-status" th:classappend="${s.status == 'OPEN'} ? 'bg-success text-white' : 
-                                                        (${s.status == 'REOPENED'} ? 'bg-warning text-dark' : 
-                                                        'bg-secondary text-white')" th:text="${s.status}"></span>
-                                </td>
-                                <td th:text="'TZS ' + ${#numbers.formatDecimal(s.openingCash, 1, 'COMMA', 0, 'POINT')}">
-                                </td>
-                                <td
-                                    th:text="${s.closingCash != null} ? 'TZS ' + ${#numbers.formatDecimal(s.closingCash, 1, 'COMMA', 0, 'POINT')} : '—'">
+                                (${s.status == 'REOPENED'} ? 'bg-warning text-dark' : 
+                                'bg-secondary text-white')" th:text="${s.status}"></span>
                                 </td>
                                 <td>
-                                    <!-- Reopen button — kwa OWNER, kikao kilichofungwa -->
+                                    <span th:if="${s.openingTotalValue != null}"
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(s.openingTotalValue, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    <span th:if="${s.openingTotalValue == null}" class="text-muted">—</span>
+                                </td>
+                                <td>
+                                    <span th:if="${s.closingTotalValue != null}" class="fw-bold text-primary"
+                                        th:text="'TZS ' + ${#numbers.formatDecimal(s.closingTotalValue, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    <span th:if="${s.closingTotalValue == null}" class="text-muted">—</span>
+                                </td>
+                                <td>
                                     <button th:if="${user.role.name() == 'OWNER' and s.status == 'CLOSED'}"
                                         type="button" class="btn btn-sm btn-outline-warning rounded-pill"
                                         data-bs-toggle="modal" th:attr="data-bs-target='#reopenModal' + ${s.id}">
@@ -288,6 +459,161 @@
             </div>
         </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         MODAL: Ongeza Float Iliyosahauka
+         ═══════════════════════════════════════════════════════════ -->
+    <div th:if="${todaySession != null}" class="modal fade" id="addFloatModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form method="post" th:action="'/web/sessions/' + ${todaySession.id} + '/floats/add'">
+                    <div class="modal-header">
+                        <h5 class="modal-title">
+                            <i class="bi bi-plus-circle text-primary"></i>
+                            Ongeza Float Iliyosahauka
+                        </h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="alert alert-warning small">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Kanuni:</strong> Unaweza kuongeza float kama provider hana miamala
+                            bado leo. Kama ana miamala, unahitaji kufunga kikao na kufungua upya.
+                        </div>
+
+                        <!-- Provider -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                Provider <span class="text-danger">*</span>
+                            </label>
+                            <select name="providerId" class="form-select" required>
+                                <option value="">-- Chagua provider --</option>
+                                <option th:each="p : ${providers}" th:value="${p.id}" th:text="${p.name}"></option>
+                            </select>
+                        </div>
+
+                        <!-- Kiasi -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                Kiasi (TZS) <span class="text-danger">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">TZS</span>
+                                <input type="number" name="openingBalance" class="form-control" step="0.01" min="0.01"
+                                    required>
+                            </div>
+                        </div>
+
+                        <!-- Chanzo cha Pesa -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                Pesa imetoka wapi? <span class="text-danger">*</span>
+                            </label>
+
+                            <div class="form-check mb-2 p-3 border rounded">
+                                <input class="form-check-input" type="radio" name="sourceType" id="sourceAlreadyHad"
+                                    value="ALREADY_HAD" required>
+                                <label class="form-check-label" for="sourceAlreadyHad">
+                                    <strong>
+                                        <i class="bi bi-clock-history text-info"></i>
+                                        Nilikuwa nayo tangu mwanzo
+                                    </strong>
+                                    <small class="text-muted d-block">
+                                        Nilisahau kuiweka wakati wa kufungua kikao.
+                                        Total Business Value itaongezeka.
+                                    </small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2 p-3 border rounded">
+                                <input class="form-check-input" type="radio" name="sourceType" id="sourceFromCash"
+                                    value="FROM_CASH">
+                                <label class="form-check-label" for="sourceFromCash">
+                                    <strong>
+                                        <i class="bi bi-cash text-success"></i>
+                                        Nimetumia Cash kuweka
+                                    </strong>
+                                    <small class="text-muted d-block">
+                                        Cash itapungua, float itaongezeka.
+                                        Total Business Value haibadiliki.
+                                    </small>
+                                </label>
+                            </div>
+
+                            <div class="form-check mb-2 p-3 border rounded">
+                                <input class="form-check-input" type="radio" name="sourceType" id="sourceFromProvider"
+                                    value="FROM_PROVIDER">
+                                <label class="form-check-label" for="sourceFromProvider">
+                                    <strong>
+                                        <i class="bi bi-arrow-left-right text-warning"></i>
+                                        Nimetumia Provider mwingine
+                                    </strong>
+                                    <small class="text-muted d-block">
+                                        Provider chanzo kitapungua, huyu ataongezeka.
+                                        Total Business Value haibadiliki.
+                                    </small>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Provider Chanzo (only for FROM_PROVIDER) -->
+                        <div class="mb-3 d-none" id="sourceProviderDiv">
+                            <label class="form-label fw-bold">
+                                Provider Chanzo <span class="text-danger">*</span>
+                            </label>
+                            <select name="sourceProviderId" class="form-select" id="sourceProvider">
+                                <option value="">-- Chagua provider chanzo --</option>
+                                <option th:each="p : ${providers}" th:value="${p.id}" th:text="${p.name}"></option>
+                            </select>
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                Provider huyu lazima awe tayari kwenye kikao hiki.
+                            </small>
+                        </div>
+
+                        <!-- Sababu -->
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">
+                                Sababu <span class="text-danger">*</span>
+                            </label>
+                            <textarea name="note" class="form-control" rows="2" required
+                                placeholder="Mfano: Nilisahau kuweka Tigo wakati wa kufungua kikao"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Acha
+                        </button>
+                        <button type="submit" class="btn btn-primary-modern btn-modern">
+                            <i class="bi bi-save"></i> Ongeza Float
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        // Toggle source provider dropdown
+        (function () {
+            var sourceProviderDiv = document.getElementById('sourceProviderDiv');
+            var sourceProviderSelect = document.getElementById('sourceProvider');
+            if (!sourceProviderDiv) return;
+
+            document.querySelectorAll('input[name="sourceType"]').forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    if (this.value === 'FROM_PROVIDER') {
+                        sourceProviderDiv.classList.remove('d-none');
+                        sourceProviderSelect.required = true;
+                    } else {
+                        sourceProviderDiv.classList.add('d-none');
+                        sourceProviderSelect.required = false;
+                        sourceProviderSelect.value = '';
+                    }
+                });
+            });
+        })();
+    </script>
 
     <th:block th:replace="~{layout :: scripts}"></th:block>
 </body>

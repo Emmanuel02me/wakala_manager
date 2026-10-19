@@ -60,6 +60,89 @@
                     </div>
                 </div>
 
+                <!-- ═══ TOTAL BUSINESS VALUE (CASH + FLOATS) ═══ -->
+                <div class="card card-custom mb-4 animate-in"
+                    th:style="${recon.totalValueStatus == 'BALANCED' ? 'border-left: 5px solid #10b981' : (recon.totalValueStatus == 'SHORTAGE' ? 'border-left: 5px solid #ef4444' : (recon.totalValueStatus == 'OVERAGE' ? 'border-left: 5px solid #f59e0b' : 'border-left: 5px solid #3b82f6'))}">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="bi bi-calculator text-primary"></i>
+                            <strong>TOTAL BUSINESS VALUE (Cash + Floats Zote)</strong>
+                        </span>
+                        <span class="badge-status"
+                            th:classappend="${recon.totalValueStatus == 'BALANCED'} ? 'bg-success text-white' : (${recon.totalValueStatus == 'SHORTAGE'} ? 'bg-danger text-white' : (${recon.totalValueStatus == 'OVERAGE'} ? 'bg-warning text-dark' : 'bg-secondary text-white'))"
+                            th:text="${recon.totalValueStatus}"></span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-3 border-end">
+                                <p class="text-muted small mb-1"><i class="bi bi-box-arrow-in-right"></i> Opening Total
+                                </p>
+                                <h3 class="mb-0 text-primary"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.openingTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h3>
+                                <small class="text-muted">
+                                    Cash: <span
+                                        th:text="${#numbers.formatDecimal(recon.openingCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    + Floats: <span
+                                        th:text="${#numbers.formatDecimal(recon.openingTotalValue.subtract(recon.openingCash), 1, 'COMMA', 0, 'POINT')}"></span>
+                                </small>
+                            </div>
+                            <div class="col-md-3 border-end">
+                                <p class="text-muted small mb-1"><i class="bi bi-arrow-right-circle"></i> Faida -
+                                    Matumizi</p>
+                                <h3 class="mb-0"
+                                    th:classappend="${recon.netProfit.compareTo(T(java.math.BigDecimal).ZERO) >= 0} ? 'text-success' : 'text-danger'"
+                                    th:text="${(recon.netProfit.compareTo(T(java.math.BigDecimal).ZERO) >= 0 ? '+ ' : '') + 'TZS ' + #numbers.formatDecimal(recon.netProfit, 1, 'COMMA', 0, 'POINT')}">
+                                </h3>
+                                <small class="text-muted">
+                                    Faida: +<span
+                                        th:text="${#numbers.formatDecimal(recon.totalInstantProfit, 1, 'COMMA', 0, 'POINT')}"></span>
+                                    | Matumizi: -<span
+                                        th:text="${#numbers.formatDecimal(recon.totalExpenses, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </small>
+                            </div>
+                            <div class="col-md-3 border-end">
+                                <p class="text-muted small mb-1"><i class="bi bi-check-circle"></i> Expected Total</p>
+                                <h3 class="mb-0 text-info"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.expectedTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h3>
+                                <small class="text-muted">Inatarajiwa ukifunga</small>
+                            </div>
+                            <div class="col-md-3">
+                                <p class="text-muted small mb-1"><i class="bi bi-flag"></i> Actual Total</p>
+                                <h3 class="mb-0" th:if="${recon.actualTotalValue != null}"
+                                    th:classappend="${recon.totalValueStatus == 'BALANCED'} ? 'text-success' : 'text-danger'"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.actualTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h3>
+                                <h3 class="mb-0 text-muted" th:if="${recon.actualTotalValue == null}">—</h3>
+                                <small th:if="${recon.totalValueDifference != null}"
+                                    th:classappend="${recon.totalValueDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0} ? 'text-success' : 'text-danger fw-bold'">
+                                    Tofauti: <span
+                                        th:text="${recon.totalValueDifference.abs().compareTo(T(java.math.BigDecimal).ZERO) == 0 ? 'Sawa' : 'TZS ' + #numbers.formatDecimal(recon.totalValueDifference, 1, 'COMMA', 0, 'POINT')}"></span>
+                                </small>
+                            </div>
+                        </div>
+
+                        <!-- Onyo la Total -->
+                        <div th:if="${recon.totalValueStatus == 'SHORTAGE'}" class="alert alert-danger mt-3 mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Total imepungua kwa TZS <span
+                                    th:text="${#numbers.formatDecimal(recon.totalValueDifference.abs(), 1, 'COMMA', 0, 'POINT')}"></span>!</strong>
+                            Angalia uchambuzi wa kina chini kujua ni wapi pesa imepungua.
+                        </div>
+                        <div th:if="${recon.totalValueStatus == 'OVERAGE'}" class="alert alert-warning mt-3 mb-0">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <strong>Total imeongezeka kwa TZS <span
+                                    th:text="${#numbers.formatDecimal(recon.totalValueDifference, 1, 'COMMA', 0, 'POINT')}"></span>!</strong>
+                            Angalia uchambuzi chini kujua sababu.
+                        </div>
+                        <div th:if="${recon.totalValueStatus == 'BALANCED'}" class="alert alert-success mt-3 mb-0">
+                            <i class="bi bi-check-circle"></i>
+                            <strong>Total imelingana kikamilifu!</strong> Hesabu zote zinaingiana.
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Cash Breakdown -->
                 <div class="card card-custom mb-4 animate-in">
                     <div class="card-header">
