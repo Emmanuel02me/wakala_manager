@@ -16,7 +16,6 @@ import java.util.*;
 @RequiredArgsConstructor
 public class ReconciliationService {
 
-    // Tolerance: TZS 1 (kwa kuwa TZS haina senti kivitendo)
     private static final BigDecimal TOLERANCE = new BigDecimal("1");
 
     private final DailySessionRepository sessionRepository;
@@ -24,9 +23,6 @@ public class ReconciliationService {
     private final TransactionRepository transactionRepository;
     private final ExpenseRepository expenseRepository;
 
-    /**
-     * Hesabu reconciliation kwa kikao kimoja.
-     */
     @Transactional(readOnly = true)
     public ReconciliationResponse calculate(Long sessionId) {
         DailySession session = sessionRepository.findById(sessionId)
@@ -37,7 +33,7 @@ public class ReconciliationService {
         List<Expense> expenses = expenseRepository.findBySessionIdAndStatusAndCancelledFalse(
                 sessionId, Expense.ExpenseStatus.APPROVED);
 
-        // ── Group transactions by provider (source + destination) ──
+        // ── Group transactions by provider ──
         Map<Long, List<Transaction>> txByProvider = new HashMap<>();
         for (Transaction tx : transactions) {
             txByProvider.computeIfAbsent(tx.getProvider().getId(), k -> new ArrayList<>()).add(tx);
@@ -47,24 +43,23 @@ public class ReconciliationService {
             }
         }
 
-        // ── Calculate per provider ──
+        // ── Per-provider reconciliation ──
         List<ProviderReconciliation> providerResults = new ArrayList<>();
         for (FloatBalance fb : floatBalances) {
             providerResults.add(calculateForProvider(fb, txByProvider));
         }
 
-        // ── Cash Effect (kutoka transactions) ──
+        // ── Cash effect ──
         BigDecimal cashEffectTotal = transactions.stream()
                 .map(Transaction::getCashEffect)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Hesabu matumizi KABLA ya expectedCash
+        // ── Expenses ──
         BigDecimal totalExpenses = expenses.stream()
                 .map(Expense::getAmount)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // ✅ Expected Cash = Opening + Cash Effect - Expenses
-        // Expenses zinapunguza cash inayotarajiwa (mfanyakazi alitumia kutoka cash)
+        // ── Expected cash ──
         BigDecimal expectedCash = session.getOpeningCash()
                 .add(cashEffectTotal)
                 .subtract(totalExpenses);
@@ -86,8 +81,43 @@ public class ReconciliationService {
                 .map(ProviderReconciliation::monthlyVolume)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // ── Overall status ──
+        // ── Overall cash+float status ──
         String overallStatus = determineOverallStatus(actualCash, cashDifference, providerResults);
+
+        // ═══════════════════════════════════════════════
+        // TOTAL BUSINESS VALUE (Cash + Floats zote)
+        // ═══════════════════════════════════════════════
+
+        // Opening Total = Opening Cash + Σ Opening Floats
+        BigDecimal openingTotalValue = session.getOpeningCash();
+        for (FloatBalance fb : floatBalances) {
+            openingTotalValue = openingTotalValue.add(fb.getOpeningBalance());
+        }
+
+        // Expected Total = Opening Total + Faida - Matumizi
+        BigDecimal expectedTotalValue = openingTotalValue
+                .add(totalInstantProfit)
+                .subtract(totalExpenses);
+
+        // Actual Total = Closing Cash + Σ Closing Floats (null kama bado haijafungwa)
+        BigDecimal actualTotalValue = null;
+        BigDecimal totalValueDifference = null;
+        String totalValueStatus = "PENDING";
+
+        if (session.getClosingCash() != null) {
+            boolean allFloatsClosed = floatBalances.stream()
+                    .allMatch(fb -> fb.getClosingBalance() != null);
+
+            if (allFloatsClosed) {
+                actualTotalValue = session.getClosingCash();
+                for (FloatBalance fb : floatBalances) {
+                    actualTotalValue = actualTotalValue.add(fb.getClosingBalance());
+                }
+
+                totalValueDifference = normalizeZero(actualTotalValue.subtract(expectedTotalValue));
+                totalValueStatus = determineTotalValueStatus(totalValueDifference);
+            }
+        }
 
         return new ReconciliationResponse(
                 sessionId,
@@ -104,12 +134,14 @@ public class ReconciliationService {
                 transactions.size(),
                 totalMonthlyVolume,
                 providerResults,
-                overallStatus);
+                overallStatus,
+                openingTotalValue,
+                expectedTotalValue,
+                actualTotalValue,
+                totalValueDifference,
+                totalValueStatus);
     }
 
-    /**
-     * Hesabu kwa provider mmoja.
-     */
     private ProviderReconciliation calculateForProvider(
             FloatBalance fb,
             Map<Long, List<Transaction>> txByProvider) {
@@ -131,7 +163,6 @@ public class ReconciliationService {
             boolean isDestination = tx.getDestinationProvider() != null
                     && tx.getDestinationProvider().getId().equals(providerId);
 
-            // Float effect
             if (isSource) {
                 floatEffect = floatEffect.add(tx.getFloatEffect());
             } else if (isDestination) {
@@ -141,7 +172,6 @@ public class ReconciliationService {
             txCount++;
             totalAmount = totalAmount.add(tx.getAmount());
 
-            // Faida
             if (tx.getRevenueModel() == RevenueModel.INSTANT) {
                 instantProfit = instantProfit.add(tx.getOwnerCommission());
             }
@@ -151,7 +181,6 @@ public class ReconciliationService {
                 monthlyVolume = monthlyVolume.add(tx.getAmount());
             }
 
-            // Commissions (kwa provider hii pekee)
             if (isSource) {
                 networkCommissionTotal = networkCommissionTotal.add(tx.getNetworkCommission());
                 ownerCommissionTotal = ownerCommissionTotal.add(tx.getOwnerCommission());
@@ -162,11 +191,9 @@ public class ReconciliationService {
         BigDecimal expectedClosing = openingFloat.add(floatEffect);
         BigDecimal actualClosing = fb.getClosingBalance();
 
-        // ✅ Handle null kabla ya kuita .abs()
         BigDecimal difference = null;
         if (actualClosing != null) {
             difference = actualClosing.subtract(expectedClosing);
-            // Normalize kwa tolerance ya TZS 1
             if (difference.abs().compareTo(TOLERANCE) < 0) {
                 difference = BigDecimal.ZERO;
             }
@@ -202,30 +229,19 @@ public class ReconciliationService {
         };
     }
 
-    /**
-     * ✅ Normalize: kama value ni ndani ya TZS 1, rudisha ZERO kamili.
-     * Inashughulikia -0.00, 0.00, -0.01, -0.5, n.k. NA null.
-     */
     private BigDecimal normalizeZero(BigDecimal value) {
         if (value == null)
             return null;
-        if (value.abs().compareTo(TOLERANCE) < 0) {
+        if (value.abs().compareTo(TOLERANCE) < 0)
             return BigDecimal.ZERO;
-        }
         return value;
     }
 
     private String determineFloatStatus(BigDecimal actual, BigDecimal difference) {
-        if (actual == null)
+        if (actual == null || difference == null)
             return "PENDING";
-        if (difference == null)
-            return "PENDING";
-
-        // ✅ Tumia TOLERANCE (kwa uthabiti)
-        if (difference.abs().compareTo(TOLERANCE) < 0) {
+        if (difference.abs().compareTo(TOLERANCE) < 0)
             return "BALANCED";
-        }
-
         return difference.compareTo(BigDecimal.ZERO) > 0 ? "OVERAGE" : "SHORTAGE";
     }
 
@@ -251,5 +267,13 @@ public class ReconciliationService {
         if (hasOverage || cashOverage)
             return "OVERAGE";
         return "BALANCED";
+    }
+
+    private String determineTotalValueStatus(BigDecimal totalDiff) {
+        if (totalDiff == null)
+            return "PENDING";
+        if (totalDiff.abs().compareTo(TOLERANCE) < 0)
+            return "BALANCED";
+        return totalDiff.compareTo(BigDecimal.ZERO) > 0 ? "OVERAGE" : "SHORTAGE";
     }
 }
