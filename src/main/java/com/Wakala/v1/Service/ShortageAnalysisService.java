@@ -47,7 +47,6 @@ public class ShortageAnalysisService {
             }
         }
 
-        // Cash shortage
         if (recon.cashDifference() != null
                 && recon.cashDifference().compareTo(BigDecimal.ZERO) < 0) {
             totalShortage = totalShortage.add(recon.cashDifference().abs());
@@ -56,16 +55,160 @@ public class ShortageAnalysisService {
             totalOverage = totalOverage.add(recon.cashDifference());
         }
 
-        // General suggestions
         generalSuggestions.addAll(generateGeneralSuggestions(recon, totalShortage, totalOverage));
+
+        // ═══════════════════════════════════════════════
+        // TOTAL BUSINESS VALUE ANALYSIS
+        // ═══════════════════════════════════════════════
+        List<String> totalValueExplanations = generateTotalValueExplanations(recon);
 
         return new ShortageAnalysis(
                 sessionId,
                 recon.overallStatus(),
                 totalShortage,
                 totalOverage,
+                recon.openingTotalValue(),
+                recon.expectedTotalValue(),
+                recon.actualTotalValue(),
+                recon.totalValueDifference(),
+                recon.totalValueStatus(),
+                totalValueExplanations,
                 providerAnalyses,
                 generalSuggestions);
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // TOTAL VALUE EXPLANATIONS — "kwa nini total imebadilika"
+    // ═══════════════════════════════════════════════════════
+    private List<String> generateTotalValueExplanations(ReconciliationResponse recon) {
+        List<String> explanations = new ArrayList<>();
+
+        BigDecimal opening = recon.openingTotalValue();
+        BigDecimal expected = recon.expectedTotalValue();
+        BigDecimal actual = recon.actualTotalValue();
+        BigDecimal diff = recon.totalValueDifference();
+        BigDecimal profit = recon.totalInstantProfit();
+        BigDecimal expenses = recon.totalExpenses();
+
+        // Kama bado haijafungwa — onyesha muhtasari wa opening pekee
+        if (actual == null) {
+            explanations.add("💰 Ulianza na: TZS " + format(opening));
+            explanations.add("   (Cash: TZS " + format(recon.openingCash())
+                    + " + Floats: TZS " + format(opening.subtract(recon.openingCash())) + ")");
+            explanations.add("");
+            explanations.add("📊 Hadi sasa:");
+            explanations.add("   Faida: TZS " + format(profit));
+            explanations.add("   Matumizi: TZS " + format(expenses));
+            explanations.add("   Total inayotarajiwa ukifunga sasa: TZS " + format(expected));
+            return explanations;
+        }
+
+        // ═══════════════════════════════════════════════
+        // KIKAO KIMEFUNGWA — TOA UFAFANUZI KAMILI
+        // ═══════════════════════════════════════════════
+
+        explanations.add("📊 MUHTASARI WA TOTAL:");
+        explanations.add("   Ulianza na: TZS " + format(opening));
+        explanations.add("   Faida: +TZS " + format(profit));
+        explanations.add("   Matumizi: -TZS " + format(expenses));
+        explanations.add("   Inatarajiwa: TZS " + format(expected) + " (= Opening + Faida - Matumizi)");
+        explanations.add("   Umefunga na: TZS " + format(actual));
+        explanations.add("");
+
+        int diffSign = diff.compareTo(BigDecimal.ZERO);
+
+        // ─── BALANCED ───
+        if (diffSign == 0) {
+            explanations.add("✅ TOTAL IMELINGANA KIKAMILIFU!");
+            explanations.add("   Hesabu zote zinaingiana: TZS " + format(actual));
+            explanations.add("   Cash + Floats wote = Opening + Faida - Matumizi");
+            return explanations;
+        }
+
+        // ─── SHORTAGE ───
+        if (diffSign < 0) {
+            explanations.add("⚠️ TOTAL IMEPUNGUA KWA: TZS " + format(diff.abs()));
+            explanations.add("");
+            explanations.add("🔍 UCHAMBUZI — Wapi pesa imepungua:");
+            explanations.add("");
+
+            // Cash shortage
+            BigDecimal cashDiff = recon.cashDifference();
+            if (cashDiff != null && cashDiff.compareTo(BigDecimal.ZERO) < 0) {
+                explanations.add("   💵 Cash: -TZS " + format(cashDiff.abs())
+                        + " (inatarajiwa TZS " + format(recon.expectedCash())
+                        + ", umeleta TZS " + format(recon.actualCash()) + ")");
+            } else if (cashDiff != null && cashDiff.compareTo(BigDecimal.ZERO) > 0) {
+                explanations.add("   💵 Cash: +TZS " + format(cashDiff)
+                        + " (imezidi — angalia chini)");
+            }
+
+            // Float shortages per provider
+            for (ProviderReconciliation p : recon.providers()) {
+                if (p.floatDifference() != null && p.floatDifference().compareTo(BigDecimal.ZERO) < 0) {
+                    explanations.add("   📱 " + p.providerName() + ": -TZS " + format(p.floatDifference().abs())
+                            + " (inatarajiwa TZS " + format(p.expectedClosingFloat())
+                            + ", ipo TZS " + format(p.actualClosingFloat()) + ")");
+                }
+            }
+
+            explanations.add("");
+            explanations.add("💡 SABABU ZINAZOWEZEKANA:");
+            explanations.add("   1. Miamala ambayo haikurekodiwa (mfanyakazi alifanya bila kuingiza)");
+            explanations.add("   2. Transfer kati ya provider haikurekodiwa");
+            explanations.add("   3. Opening balance ya leo haikuwa sahihi (imeingizwa chini ya ilivyokuwa)");
+            explanations.add("   4. Kosa la kuhesabu (typo wakati wa kuingiza namba)");
+            explanations.add("   5. Wizi au upotevu halisi wa pesa");
+            explanations.add("");
+            explanations.add("🔧 HATUA ZA KUFUATA:");
+            explanations.add("   1. Kagua kila provider — angalia shortage kubwa zaidi");
+            explanations.add("   2. Linganisha na SMS za mtandao (kama zipo)");
+            explanations.add("   3. Muulize mfanyakazi kama alifanya transfer yoyote");
+            explanations.add("   4. Kagua opening balance ya jana (kama ilikuwa sahihi)");
+            explanations.add("   5. Kama haipatikani — fungua kikao tena na urekebishe");
+            return explanations;
+        }
+
+        // ─── OVERAGE ───
+        explanations.add("⚠️ TOTAL IMEONGEZEKA KWA: TZS " + format(diff));
+        explanations.add("");
+        explanations.add("🔍 UCHAMBUZI — Wapi pesa imeongezeka:");
+        explanations.add("");
+
+        BigDecimal cashDiffOverage = recon.cashDifference();
+        if (cashDiffOverage != null && cashDiffOverage.compareTo(BigDecimal.ZERO) > 0) {
+            explanations.add("   💵 Cash: +TZS " + format(cashDiffOverage)
+                    + " (inatarajiwa TZS " + format(recon.expectedCash())
+                    + ", umeleta TZS " + format(recon.actualCash()) + ")");
+        }
+
+        for (ProviderReconciliation p : recon.providers()) {
+            if (p.floatDifference() != null && p.floatDifference().compareTo(BigDecimal.ZERO) > 0) {
+                explanations.add("   📱 " + p.providerName() + ": +TZS " + format(p.floatDifference())
+                        + " (inatarajiwa TZS " + format(p.expectedClosingFloat())
+                        + ", ipo TZS " + format(p.actualClosingFloat()) + ")");
+            }
+        }
+
+        explanations.add("");
+        explanations.add("💡 SABABU ZINAZOWEZEKANA:");
+        explanations.add("   1. Miamala ilirekodiwa mara mbili (double-entry)");
+        explanations.add("   2. Faida halisi ni kubwa kuliko ilivyohesabiwa");
+        explanations.add("   3. Transfer ilikuja kutoka nje (mfano: mtu alikudhamini)");
+        explanations.add("   4. Opening balance ilikuwa chini ya ilivyokuwa halisi");
+        explanations.add("   5. Cash iliyokuwa imehekwa nje imerudi");
+        explanations.add("");
+        explanations.add("🔧 HATUA ZA KUFUATA:");
+        explanations.add("   1. Kagua miamala ya leo — kuna yoyote iliyorekodiwa mara mbili?");
+        explanations.add("   2. Angalia kama kuna transfer isiyo ya kawaida");
+        explanations.add("   3. Thibitisha opening balance ya leo ilikuwa sahihi");
+        explanations.add("   4. Kama ni faida halisi — furaha! Ila thibitisha kwa usahihi");
+        return explanations;
+    }
+
+    private String format(BigDecimal value) {
+        if (value == null) return "0";
+        return String.format("%,.0f", value);
     }
 
     private ShortageAnalysis.ProviderAnalysis analyzeProvider(
@@ -85,51 +228,36 @@ public class ShortageAnalysisService {
         BigDecimal diff = p.floatDifference();
         BigDecimal absDiff = diff.abs();
 
-        // Percent
         BigDecimal percent = p.openingFloat().compareTo(BigDecimal.ZERO) > 0
                 ? absDiff.multiply(HUNDRED).divide(p.openingFloat(), 2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        // Severity
         severity = calculateSeverity(absDiff, percent);
 
-        // ══════════════════════════════════════════════
-        // SUGGESTIONS KWA KILA PATTERN
-        // ══════════════════════════════════════════════
-
         if (diff.compareTo(BigDecimal.ZERO) < 0) {
-            // SHORTAGE — float imepungua kuliko expected
             suggestions.add("Float ilipungua kwa " + absDiff + " kuliko ilivyotarajiwa.");
 
-            // Pattern 1: Hakuna miamala lakini float imepungua
             if (p.transactionCount() == 0) {
-                suggestions.add(
-                        "⚠️ Hakuna miamala iliyorekodiwa kwenye " + p.providerName() +
-                                " lakini float imepungua. Angalia kama:");
+                suggestions.add("⚠️ Hakuna miamala iliyorekodiwa kwenye " + p.providerName()
+                        + " lakini float imepungua. Angalia kama:");
                 suggestions.add("   - Opening balance uliyoweka ilikuwa sahihi?");
                 suggestions.add("   - Kuna muamala uliofanyika lakini haukurekodiwa?");
                 suggestions.add("   - Kuna mtu alitumia float nje ya mfumo?");
             }
 
-            // Pattern 2: Shortage = exact round number
             if (isRoundNumber(absDiff)) {
-                suggestions.add(
-                        "💡 Shortage ni namba kamili (" + absDiff + "). " +
-                                "Angalia kama kuna transfer uliyosahau kurekodi.");
+                suggestions.add("💡 Shortage ni namba kamili (" + absDiff + "). "
+                        + "Angalia kama kuna transfer uliyosahau kurekodi.");
             }
 
-            // Pattern 3: Shortage kubwa sana (CRITICAL)
             if (severity.equals("CRITICAL")) {
-                suggestions.add(
-                        "🔴 Shortage ni kubwa mno (" + percent + "% ya opening). " +
-                                "Hii inaweza kuwa:");
+                suggestions.add("🔴 Shortage ni kubwa mno (" + percent + "% ya opening). Hii inaweza kuwa:");
                 suggestions.add("   - Opening balance isiyo sahihi");
                 suggestions.add("   - Transfer kubwa isiyorekodiwa");
                 suggestions.add("   - Kosa la kuingiza data");
                 suggestions.add("   - Wizi (kama mifumo mingine ni BALANCED)");
             }
 
-            // Pattern 4: Angalia transfers
             List<Transaction> transfers = transactionRepository
                     .findBySessionId(sessionId).stream()
                     .filter(t -> t.getTransactionType() == Transaction.TransactionType.TRANSFER_PROVIDER
@@ -141,13 +269,10 @@ public class ShortageAnalysisService {
                     .toList();
 
             if (transfers.isEmpty() && absDiff.compareTo(TEN_THOUSAND) > 0) {
-                suggestions.add(
-                        "💡 Hakuna transfers zilizorekodiwa kwa " + p.providerName() +
-                                ". Kama ulifanya transfer, angalia kama imerekodiwa.");
+                suggestions.add("💡 Hakuna transfers zilizorekodiwa kwa " + p.providerName()
+                        + ". Kama ulifanya transfer, angalia kama imerekodiwa.");
             }
-
         } else {
-            // OVERAGE — float imeongezeka kuliko expected
             suggestions.add("Float imeongezeka kwa " + diff + " kuliko ilivyotarajiwa.");
             suggestions.add("Angalia kama:");
             suggestions.add("   - Kuna float top-up isiyorekodiwa?");
@@ -177,7 +302,6 @@ public class ShortageAnalysisService {
         suggestions.add("   Jumla ya overage: " + totalOverage);
         suggestions.add("");
 
-        // Cash shortage
         if (recon.cashDifference() != null
                 && recon.cashDifference().compareTo(BigDecimal.ZERO) < 0) {
             suggestions.add("💰 CASH SHORTAGE (" + recon.cashDifference().abs() + "):");
@@ -186,21 +310,18 @@ public class ShortageAnalysisService {
             suggestions.add("   - Angalia kama kulikuwa na float top-up kutoka cash");
         }
 
-        // Multiple providers with shortage
         long shortageCount = recon.providers().stream()
                 .filter(p -> "SHORTAGE".equals(p.status()))
                 .count();
 
         if (shortageCount > 1) {
             suggestions.add("");
-            suggestions.add("⚠️ Provider " + shortageCount + " wana shortage. " +
-                    "Hii inaweza kuashiria:");
+            suggestions.add("⚠️ Provider " + shortageCount + " wana shortage. Hii inaweza kuashiria:");
             suggestions.add("   - Opening balances zote zilikuwa wrong");
             suggestions.add("   - Kuna kosa la kimfumo kwenye kuingiza data");
             suggestions.add("   - Wakala alifanya transfers nyingi bila kurekodi");
         }
 
-        // Large total shortage
         if (totalShortage.compareTo(new BigDecimal("100000")) > 0) {
             suggestions.add("");
             suggestions.add("🚨 SHORTAGE KUBWA SANA (" + totalShortage + "):");
@@ -224,7 +345,7 @@ public class ShortageAnalysisService {
                 || percent.compareTo(new BigDecimal("20")) > 0) {
             return "HIGH";
         }
-        if (absDiff.compareTo(new BigDecimal("10000")) > 0
+        if (absDiff.compareTo(TEN_THOUSAND) > 0
                 || percent.compareTo(new BigDecimal("5")) > 0) {
             return "MEDIUM";
         }
@@ -232,7 +353,6 @@ public class ShortageAnalysisService {
     }
 
     private boolean isRoundNumber(BigDecimal amount) {
-        // Angalia kama ni multiple ya 10,000
-        return amount.remainder(new BigDecimal("10000")).compareTo(BigDecimal.ZERO) == 0;
+        return amount.remainder(TEN_THOUSAND).compareTo(BigDecimal.ZERO) == 0;
     }
 }
