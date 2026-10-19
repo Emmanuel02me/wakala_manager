@@ -45,16 +45,27 @@ public class SessionService {
     public SessionResponse openSession(OpenSessionRequest req, User user) {
         LocalDate today = LocalDate.now();
 
-        sessionRepository.findBySessionDateAndStatus(today, DailySession.SessionStatus.OPEN)
-                .ifPresent(s -> {
-                    throw new BusinessException("Kuna kikao wazi tayari leo");
-                });
+        // ✅ FIX: Kagua kikao CHOCHOTE kilicho wazi (sio leo tu)
+        List<DailySession> openSessions = sessionRepository.findAllOpen();
+        if (!openSessions.isEmpty()) {
+            DailySession existing = openSessions.get(0);
+            long daysOld = java.time.temporal.ChronoUnit.DAYS.between(
+                    existing.getSessionDate(), today);
 
-        sessionRepository.findBySessionDateAndStatus(today, DailySession.SessionStatus.REOPENED)
-                .ifPresent(s -> {
-                    throw new BusinessException(
-                            "Kuna kikao kilichofunguliwa tena leo. Kifunge kwanza kabla ya kufungua kipya.");
-                });
+            String msg;
+            if (daysOld == 0) {
+                msg = "Kuna kikao wazi tayari leo. Kifunge kwanza kabla ya kufungua kipya.";
+            } else if (daysOld == 1) {
+                msg = "Kuna kikao wazi tangu jana (" + existing.getSessionDate() + "). "
+                        + "Kifunge kwanza kabla ya kufungua kipya.";
+            } else {
+                msg = "Kuna kikao wazi tangu " + existing.getSessionDate()
+                        + " (siku " + daysOld + " zilizopita). "
+                        + "Kifunge kwanza kabla ya kufungua kipya. "
+                        + "Kama kikao hiki kimesahaulika, wasiliana na OWNER kukifunga kwa mkono.";
+            }
+            throw new BusinessException(msg);
+        }
 
         Optional<DailySession> lastClosedOpt = sessionRepository
                 .findTopByStatusOrderBySessionDateDesc(DailySession.SessionStatus.CLOSED);
@@ -107,8 +118,8 @@ public class SessionService {
         if (hasAdjustment && adjustmentTotal.compareTo(new BigDecimal("10000")) > 0) {
             if (req.adjustmentNote() == null || req.adjustmentNote().isBlank()) {
                 throw new BusinessException(
-                        "Kuna tofauti ya " + adjustmentTotal + " kati ya jana na leo. " +
-                                "Tafadhali toa sababu (adjustmentNote).");
+                        "Kuna tofauti ya " + adjustmentTotal + " kati ya jana na leo. "
+                                + "Tafadhali toa sababu (adjustmentNote).");
             }
         }
 
@@ -150,7 +161,7 @@ public class SessionService {
     }
 
     // ═══════════════════════════════════════════════════════════
-    // ✅ ONGEZA FLOAT KATIKATI YA KIKAO
+    // ONGEZA FLOAT KATIKATI YA KIKAO
     // ═══════════════════════════════════════════════════════════
     @Transactional
     public SessionResponse addFloatToOpenSession(Long sessionId, AddFloatRequest req, User user) {
@@ -165,7 +176,6 @@ public class SessionService {
         Provider provider = providerRepository.findById(req.providerId())
                 .orElseThrow(() -> new ResourceNotFoundException("Provider haipatikani"));
 
-        // Kagua kama provider ana miamala yoyote leo
         long txCount = transactionRepository.countBySessionIdAndProviderIdOrDestination(
                 sessionId, req.providerId());
 
@@ -178,9 +188,9 @@ public class SessionService {
         if (req.sourceType() == AddFloatRequest.FloatSourceType.ALREADY_HAD) {
             if (txCount > 0) {
                 throw new BusinessException(
-                        provider.getName() + " tayari ina miamala " + txCount + " leo. " +
-                                "Huwezi kuiweka kama 'Nilikuwa nayo' — hii ingeharibu hesabu. " +
-                                "Tumia 'Nimetumia cash' au 'Nimetumia provider mwingine' badala yake.");
+                        provider.getName() + " tayari ina miamala " + txCount + " leo. "
+                                + "Huwezi kuiweka kama 'Nilikuwa nayo' — hii ingeharibu hesabu. "
+                                + "Tumia 'Nimetumia cash' au 'Nimetumia provider mwingine' badala yake.");
             }
 
             if (existingFb.isPresent()) {
@@ -213,17 +223,14 @@ public class SessionService {
         // ═══════════════════════════════════════════════════════════
         // MODE B/C: TRANSFER — create transaction (Total haibadiliki)
         // ═══════════════════════════════════════════════════════════
-
-        // Zuia kama existing opening > 0 (watumie Mode A badala yake)
         if (existingFb.isPresent()
                 && existingFb.get().getOpeningBalance().compareTo(BigDecimal.ZERO) > 0) {
             throw new BusinessException(
-                    provider.getName() + " tayari ina opening ya TZS " +
-                            existingFb.get().getOpeningBalance().toPlainString() + " kwenye kikao. " +
-                            "Badilisha opening yake badala ya kuongeza kama transfer.");
+                    provider.getName() + " tayari ina opening ya TZS "
+                            + existingFb.get().getOpeningBalance().toPlainString() + " kwenye kikao. "
+                            + "Badilisha opening yake badala ya kuongeza kama transfer.");
         }
 
-        // Hakikisha FloatBalance ipo (kama haipo, unda na opening = 0)
         FloatBalance fb = existingFb.orElseGet(() -> {
             FloatBalance newFb = FloatBalance.builder()
                     .session(session)
@@ -240,7 +247,7 @@ public class SessionService {
                     .session(session)
                     .provider(provider)
                     .transactionType(Transaction.TransactionType.FLOAT_TOPUP)
-                    .revenueModel(RevenueModel.NONE) // ✅ FIX
+                    .revenueModel(RevenueModel.NONE)
                     .amount(req.openingBalance())
                     .networkCommission(BigDecimal.ZERO)
                     .ownerCommission(BigDecimal.ZERO)
@@ -272,21 +279,21 @@ public class SessionService {
 
             if (!floatBalanceRepository.existsBySessionIdAndProviderId(sessionId, sourceProvider.getId())) {
                 throw new BusinessException(
-                        "Provider chanzo " + sourceProvider.getName() +
-                                " haipo kwenye kikao hiki. Ongeza kwanza.");
+                        "Provider chanzo " + sourceProvider.getName()
+                                + " haipo kwenye kikao hiki. Ongeza kwanza.");
             }
 
             Transaction tx = Transaction.builder()
                     .session(session)
-                    .provider(sourceProvider) // source
-                    .destinationProvider(provider) // destination
+                    .provider(sourceProvider)
+                    .destinationProvider(provider)
                     .transactionType(Transaction.TransactionType.TRANSFER_PROVIDER)
-                    .revenueModel(RevenueModel.NONE) // ✅ FIX
+                    .revenueModel(RevenueModel.NONE)
                     .amount(req.openingBalance())
                     .networkCommission(BigDecimal.ZERO)
                     .ownerCommission(BigDecimal.ZERO)
-                    .floatEffect(req.openingBalance().negate()) // source decreases
-                    .cashEffect(BigDecimal.ZERO) // no cash effect
+                    .floatEffect(req.openingBalance().negate())
+                    .cashEffect(BigDecimal.ZERO)
                     .transactionTime(LocalDateTime.now())
                     .recordedBy(user)
                     .reference("Float transfer: " + sourceProvider.getName()
@@ -433,8 +440,8 @@ public class SessionService {
                 sessionId, Expense.ExpenseStatus.PENDING);
         if (!pendingExpenses.isEmpty()) {
             throw new BusinessException(
-                    "Kuna gharama " + pendingExpenses.size() + " ambazo hazijaidhinishwa. " +
-                            "Zihidinishe kwanza kabla ya kufunga kikao.");
+                    "Kuna gharama " + pendingExpenses.size() + " ambazo hazijaidhinishwa. "
+                            + "Zihidinishe kwanza kabla ya kufunga kikao.");
         }
 
         for (FloatClosingRequest fc : req.floatClosings()) {
@@ -458,6 +465,60 @@ public class SessionService {
         transactionRepository.lockAllBySessionId(sessionId);
 
         auditService.log(user.getId(), "CLOSE_SESSION", "DailySession", sessionId, null, null);
+
+        return reconciliationService.calculate(sessionId);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // FORCE CLOSE — kwa OWNER pekee (kikao kilichokwama)
+    // ═══════════════════════════════════════════════════════════
+    @Transactional
+    public ReconciliationResponse forceCloseSession(Long sessionId, CloseSessionRequest req, User user) {
+        DailySession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session haipatikani"));
+
+        if (user.getRole() != User.Role.OWNER) {
+            throw new BusinessException("Ni OWNER pekee anayeweza kufunga kikao kwa mkono");
+        }
+
+        if (session.getStatus() == DailySession.SessionStatus.CLOSED) {
+            throw new BusinessException("Kikao hiki kimefungwa tayari");
+        }
+
+        // Hifadhi status ya awali kwa ajili ya audit
+        DailySession.SessionStatus originalStatus = session.getStatus();
+
+        List<Expense> pendingExpenses = expenseRepository.findBySessionIdAndStatus(
+                sessionId, Expense.ExpenseStatus.PENDING);
+        if (!pendingExpenses.isEmpty()) {
+            throw new BusinessException(
+                    "Kuna gharama " + pendingExpenses.size() + " ambazo hazijaidhinishwa. "
+                            + "Zihidinishe kwanza.");
+        }
+
+        for (FloatClosingRequest fc : req.floatClosings()) {
+            FloatBalance fb = floatBalanceRepository
+                    .findBySessionIdAndProviderId(sessionId, fc.providerId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "FloatBalance haipatikani kwa provider: " + fc.providerId()));
+            fb.setClosingBalance(fc.closingBalance());
+            floatBalanceRepository.save(fb);
+        }
+
+        session.setClosingCash(req.closingCash());
+        session.setStatus(DailySession.SessionStatus.CLOSED);
+        session.setClosedBy(user);
+        session.setClosedAt(LocalDateTime.now());
+        if (req.notes() != null) {
+            session.setNotes(req.notes());
+        }
+        sessionRepository.save(session);
+
+        transactionRepository.lockAllBySessionId(sessionId);
+
+        auditService.log(user.getId(), "FORCE_CLOSE_SESSION", "DailySession", sessionId,
+                "Was " + originalStatus + " since " + session.getSessionDate(),
+                "Force-closed by OWNER. Closing cash: " + req.closingCash());
 
         return reconciliationService.calculate(sessionId);
     }
@@ -515,5 +576,17 @@ public class SessionService {
             return toResponse(reopened.get());
 
         return null;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // kikao CHOCHOTE kilicho wazi (hata cha siku zilizopita)
+    // ═══════════════════════════════════════════════════════════
+    @Transactional(readOnly = true)
+    public SessionResponse getAnyOpenSession() {
+        List<DailySession> open = sessionRepository.findAllOpen();
+        if (open.isEmpty()) {
+            return null;
+        }
+        return toResponse(open.get(0));
     }
 }
