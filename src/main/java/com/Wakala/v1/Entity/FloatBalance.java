@@ -6,7 +6,11 @@ import java.math.BigDecimal;
 
 @Entity
 @Table(name = "float_balances")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class FloatBalance {
 
     @Id
@@ -32,4 +36,8 @@ public class FloatBalance {
 
     @Column(precision = 15, scale = 2)
     private BigDecimal difference;
+
+    // kumbukumbu ya mabadiliko ya opening
+    @Column(name = "adjustment_note", length = 500)
+    private String adjustmentNote;
 }
