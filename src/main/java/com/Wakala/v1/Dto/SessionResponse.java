@@ -5,17 +5,22 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public record SessionResponse(
-                Long id,
-                LocalDate sessionDate,
-                String status,
-                BigDecimal openingCash,
-                BigDecimal closingCash,
-                LocalDateTime openedAt,
-                LocalDateTime closedAt,
-                String openedBy,
-                String closedBy,
-                boolean hasOpeningAdjustment,
-                String openingAdjustmentNote,
-                BigDecimal adjustmentTotal,
-                int transactionCount) {
+        Long id,
+        LocalDate sessionDate,
+        String status,
+        BigDecimal openingCash,
+        BigDecimal closingCash,
+        LocalDateTime openedAt,
+        LocalDateTime closedAt,
+        String openedBy,
+        String closedBy,
+        boolean hasOpeningAdjustment,
+        String openingAdjustmentNote,
+        BigDecimal adjustmentTotal,
+        int transactionCount,
+
+        // ── TOTAL BUSINESS VALUE ──
+        BigDecimal openingTotalValue, // Cash + opening floats
+        BigDecimal closingTotalValue // Cash + closing floats (null kama haijafungwa)
+) {
 }
