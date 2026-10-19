@@ -9,6 +9,8 @@ import com.Wakala.v1.Entity.DailySession;
 import com.Wakala.v1.Entity.Expense;
 import com.Wakala.v1.Entity.FloatBalance;
 import com.Wakala.v1.Entity.Provider;
+import com.Wakala.v1.Entity.RevenueModel;
+import com.Wakala.v1.Entity.Transaction;
 import com.Wakala.v1.Entity.User;
 import com.Wakala.v1.Exception.BusinessException;
 import com.Wakala.v1.Exception.ResourceNotFoundException;
@@ -43,7 +45,6 @@ public class SessionService {
     public SessionResponse openSession(OpenSessionRequest req, User user) {
         LocalDate today = LocalDate.now();
 
-        // Zuia kama kuna OPEN au REOPENED
         sessionRepository.findBySessionDateAndStatus(today, DailySession.SessionStatus.OPEN)
                 .ifPresent(s -> {
                     throw new BusinessException("Kuna kikao wazi tayari leo");
@@ -65,7 +66,6 @@ public class SessionService {
         if (lastClosedOpt.isPresent()) {
             DailySession lastClosed = lastClosedOpt.get();
 
-            // Cash adjustment
             BigDecimal cashDiff = req.openingCash().subtract(lastClosed.getClosingCash());
             if (cashDiff.compareTo(BigDecimal.ZERO) != 0) {
                 hasAdjustment = true;
@@ -79,7 +79,6 @@ public class SessionService {
                         .append(")\n");
             }
 
-            // Float adjustments
             List<FloatBalance> lastFloats = floatBalanceRepository
                     .findBySessionId(lastClosed.getId());
 
@@ -105,7 +104,6 @@ public class SessionService {
             }
         }
 
-        // Kama kuna adjustment kubwa, lazima kuwe na note
         if (hasAdjustment && adjustmentTotal.compareTo(new BigDecimal("10000")) > 0) {
             if (req.adjustmentNote() == null || req.adjustmentNote().isBlank()) {
                 throw new BusinessException(
@@ -146,10 +144,163 @@ public class SessionService {
     }
 
     private String formatDiff(BigDecimal diff) {
-        if (diff.compareTo(BigDecimal.ZERO) > 0) {
+        if (diff.compareTo(BigDecimal.ZERO) > 0)
             return "+" + diff;
-        }
         return diff.toString();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // ✅ ONGEZA FLOAT KATIKATI YA KIKAO
+    // ═══════════════════════════════════════════════════════════
+    @Transactional
+    public SessionResponse addFloatToOpenSession(Long sessionId, AddFloatRequest req, User user) {
+        DailySession session = sessionRepository.findById(sessionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Session haipatikani"));
+
+        if (session.getStatus() != DailySession.SessionStatus.OPEN
+                && session.getStatus() != DailySession.SessionStatus.REOPENED) {
+            throw new BusinessException("Kikao hakiko wazi — huwezi kuongeza float");
+        }
+
+        Provider provider = providerRepository.findById(req.providerId())
+                .orElseThrow(() -> new ResourceNotFoundException("Provider haipatikani"));
+
+        // Kagua kama provider ana miamala yoyote leo
+        long txCount = transactionRepository.countBySessionIdAndProviderIdOrDestination(
+                sessionId, req.providerId());
+
+        Optional<FloatBalance> existingFb = floatBalanceRepository
+                .findBySessionIdAndProviderId(sessionId, req.providerId());
+
+        // ═══════════════════════════════════════════════════════════
+        // MODE A: ALREADY HAD — opening correction (Total inaongezeka)
+        // ═══════════════════════════════════════════════════════════
+        if (req.sourceType() == AddFloatRequest.FloatSourceType.ALREADY_HAD) {
+            if (txCount > 0) {
+                throw new BusinessException(
+                        provider.getName() + " tayari ina miamala " + txCount + " leo. " +
+                                "Huwezi kuiweka kama 'Nilikuwa nayo' — hii ingeharibu hesabu. " +
+                                "Tumia 'Nimetumia cash' au 'Nimetumia provider mwingine' badala yake.");
+            }
+
+            if (existingFb.isPresent()) {
+                BigDecimal oldBalance = existingFb.get().getOpeningBalance();
+                existingFb.get().setOpeningBalance(req.openingBalance());
+                existingFb.get().setAdjustmentNote(req.note());
+                floatBalanceRepository.save(existingFb.get());
+
+                auditService.log(user.getId(), "ADJUST_OPENING_FLOAT", "FloatBalance",
+                        existingFb.get().getId(),
+                        oldBalance.toPlainString(),
+                        req.openingBalance().toPlainString() + " — " + req.note());
+            } else {
+                FloatBalance fb = FloatBalance.builder()
+                        .session(session)
+                        .provider(provider)
+                        .openingBalance(req.openingBalance())
+                        .adjustmentNote(req.note())
+                        .build();
+                fb = floatBalanceRepository.save(fb);
+
+                auditService.log(user.getId(), "ADD_OPENING_FLOAT", "FloatBalance",
+                        fb.getId(), null,
+                        req.openingBalance().toPlainString() + " — " + req.note());
+            }
+
+            return toResponse(session);
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // MODE B/C: TRANSFER — create transaction (Total haibadiliki)
+        // ═══════════════════════════════════════════════════════════
+
+        // Zuia kama existing opening > 0 (watumie Mode A badala yake)
+        if (existingFb.isPresent()
+                && existingFb.get().getOpeningBalance().compareTo(BigDecimal.ZERO) > 0) {
+            throw new BusinessException(
+                    provider.getName() + " tayari ina opening ya TZS " +
+                            existingFb.get().getOpeningBalance().toPlainString() + " kwenye kikao. " +
+                            "Badilisha opening yake badala ya kuongeza kama transfer.");
+        }
+
+        // Hakikisha FloatBalance ipo (kama haipo, unda na opening = 0)
+        FloatBalance fb = existingFb.orElseGet(() -> {
+            FloatBalance newFb = FloatBalance.builder()
+                    .session(session)
+                    .provider(provider)
+                    .openingBalance(BigDecimal.ZERO)
+                    .adjustmentNote(req.note())
+                    .build();
+            return floatBalanceRepository.save(newFb);
+        });
+
+        // ─── FROM_CASH: FLOAT_TOPUP kutoka cash ───
+        if (req.sourceType() == AddFloatRequest.FloatSourceType.FROM_CASH) {
+            Transaction tx = Transaction.builder()
+                    .session(session)
+                    .provider(provider)
+                    .transactionType(Transaction.TransactionType.FLOAT_TOPUP)
+                    .revenueModel(RevenueModel.NONE) // ✅ FIX
+                    .amount(req.openingBalance())
+                    .networkCommission(BigDecimal.ZERO)
+                    .ownerCommission(BigDecimal.ZERO)
+                    .floatEffect(req.openingBalance())
+                    .cashEffect(req.openingBalance().negate())
+                    .transactionTime(LocalDateTime.now())
+                    .recordedBy(user)
+                    .reference("Float iliyoongezwa katikati ya kikao: " + req.note())
+                    .build();
+            tx = transactionRepository.save(tx);
+
+            auditService.log(user.getId(), "ADD_FLOAT_FROM_CASH", "Transaction",
+                    tx.getId(), null,
+                    provider.getName() + ": +" + req.openingBalance().toPlainString()
+                            + " (cash: -" + req.openingBalance().toPlainString() + ") — " + req.note());
+        }
+
+        // ─── FROM_PROVIDER: TRANSFER_PROVIDER kutoka provider mwingine ───
+        else if (req.sourceType() == AddFloatRequest.FloatSourceType.FROM_PROVIDER) {
+            if (req.sourceProviderId() == null) {
+                throw new BusinessException("Provider chanzo kinahitajika kwa 'Nimetumia provider mwingine'");
+            }
+            if (req.sourceProviderId().equals(req.providerId())) {
+                throw new BusinessException("Hauwezi kuhamisha provider kwenda kwake mwenyewe");
+            }
+
+            Provider sourceProvider = providerRepository.findById(req.sourceProviderId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Provider chanzo haipatikani"));
+
+            if (!floatBalanceRepository.existsBySessionIdAndProviderId(sessionId, sourceProvider.getId())) {
+                throw new BusinessException(
+                        "Provider chanzo " + sourceProvider.getName() +
+                                " haipo kwenye kikao hiki. Ongeza kwanza.");
+            }
+
+            Transaction tx = Transaction.builder()
+                    .session(session)
+                    .provider(sourceProvider) // source
+                    .destinationProvider(provider) // destination
+                    .transactionType(Transaction.TransactionType.TRANSFER_PROVIDER)
+                    .revenueModel(RevenueModel.NONE) // ✅ FIX
+                    .amount(req.openingBalance())
+                    .networkCommission(BigDecimal.ZERO)
+                    .ownerCommission(BigDecimal.ZERO)
+                    .floatEffect(req.openingBalance().negate()) // source decreases
+                    .cashEffect(BigDecimal.ZERO) // no cash effect
+                    .transactionTime(LocalDateTime.now())
+                    .recordedBy(user)
+                    .reference("Float transfer: " + sourceProvider.getName()
+                            + " → " + provider.getName() + " — " + req.note())
+                    .build();
+            tx = transactionRepository.save(tx);
+
+            auditService.log(user.getId(), "ADD_FLOAT_FROM_PROVIDER", "Transaction",
+                    tx.getId(), null,
+                    sourceProvider.getName() + " → " + provider.getName()
+                            + ": " + req.openingBalance().toPlainString() + " — " + req.note());
+        }
+
+        return toResponse(session);
     }
 
     // ═══════════════════════════════════════════
@@ -173,6 +324,23 @@ public class SessionService {
     private SessionResponse toResponse(DailySession s) {
         int txCount = transactionRepository.findBySessionId(s.getId()).size();
 
+        List<FloatBalance> floats = floatBalanceRepository.findBySessionId(s.getId());
+        BigDecimal openingTotal = s.getOpeningCash();
+        for (FloatBalance fb : floats) {
+            openingTotal = openingTotal.add(fb.getOpeningBalance());
+        }
+
+        BigDecimal closingTotal = null;
+        if (s.getClosingCash() != null) {
+            boolean allClosed = floats.stream().allMatch(fb -> fb.getClosingBalance() != null);
+            if (allClosed) {
+                closingTotal = s.getClosingCash();
+                for (FloatBalance fb : floats) {
+                    closingTotal = closingTotal.add(fb.getClosingBalance());
+                }
+            }
+        }
+
         return new SessionResponse(
                 s.getId(), s.getSessionDate(), s.getStatus().name(),
                 s.getOpeningCash(), s.getClosingCash(),
@@ -182,7 +350,9 @@ public class SessionService {
                 s.isHasOpeningAdjustment(),
                 s.getOpeningAdjustmentNote(),
                 s.getAdjustmentTotal(),
-                txCount);
+                txCount,
+                openingTotal,
+                closingTotal);
     }
 
     @Transactional(readOnly = true)
@@ -191,25 +361,59 @@ public class SessionService {
                 .findTopByStatusOrderBySessionDateDesc(DailySession.SessionStatus.CLOSED);
 
         if (lastClosed.isEmpty()) {
-            return new LastClosedSessionResponse(false, null, null, null, List.of());
+            return new LastClosedSessionResponse(
+                    false, null, null, null, List.of(),
+                    null, null, null, "PENDING", false);
         }
 
         DailySession session = lastClosed.get();
         List<FloatBalance> floats = floatBalanceRepository.findBySessionId(session.getId());
 
+        BigDecimal closingTotal = session.getClosingCash();
+        BigDecimal totalFloatDiff = BigDecimal.ZERO;
+        boolean hasFloatDiff = false;
+
+        ReconciliationResponse recon = reconciliationService.calculate(session.getId());
+
         List<LastClosedSessionResponse.FloatClosingInfo> closings = floats.stream()
-                .map(fb -> new LastClosedSessionResponse.FloatClosingInfo(
-                        fb.getProvider().getId(),
-                        fb.getProvider().getName(),
-                        fb.getClosingBalance()))
+                .map(fb -> {
+                    var providerRecon = recon.providers().stream()
+                            .filter(p -> p.providerId().equals(fb.getProvider().getId()))
+                            .findFirst().orElse(null);
+                    BigDecimal floatDiff = providerRecon != null ? providerRecon.floatDifference() : null;
+                    return new LastClosedSessionResponse.FloatClosingInfo(
+                            fb.getProvider().getId(),
+                            fb.getProvider().getName(),
+                            fb.getClosingBalance(),
+                            floatDiff);
+                })
                 .toList();
+
+        for (var closing : closings) {
+            if (closing.closingBalance() != null) {
+                closingTotal = closingTotal.add(closing.closingBalance());
+            }
+            if (closing.floatDifference() != null
+                    && closing.floatDifference().compareTo(BigDecimal.ZERO) != 0) {
+                totalFloatDiff = totalFloatDiff.add(closing.floatDifference());
+                hasFloatDiff = true;
+            }
+        }
+
+        BigDecimal totalFloatDiffFinal = hasFloatDiff ? totalFloatDiff : BigDecimal.ZERO;
+        boolean hadIssues = !"BALANCED".equals(recon.overallStatus());
 
         return new LastClosedSessionResponse(
                 true,
                 session.getId(),
                 session.getSessionDate(),
                 session.getClosingCash(),
-                closings);
+                closings,
+                closingTotal,
+                recon.cashDifference(),
+                totalFloatDiffFinal,
+                recon.overallStatus(),
+                hadIssues);
     }
 
     // ═══════════════════════════════════════════
@@ -225,7 +429,6 @@ public class SessionService {
             throw new BusinessException("Kikao hakiko wazi au hakijafunguliwa tena.");
         }
 
-        // Angalia gharama zilizosubiri
         List<Expense> pendingExpenses = expenseRepository.findBySessionIdAndStatus(
                 sessionId, Expense.ExpenseStatus.PENDING);
         if (!pendingExpenses.isEmpty()) {
@@ -234,7 +437,6 @@ public class SessionService {
                             "Zihidinishe kwanza kabla ya kufunga kikao.");
         }
 
-        // Weka closing balance kwa kila provider
         for (FloatClosingRequest fc : req.floatClosings()) {
             FloatBalance fb = floatBalanceRepository
                     .findBySessionIdAndProviderId(sessionId, fc.providerId())
@@ -296,7 +498,7 @@ public class SessionService {
     }
 
     // ═══════════════════════════════════════════
-    // TODAY'S SESSION (OPEN au REOPENED)
+    // TODAY'S SESSION
     // ═══════════════════════════════════════════
     @Transactional(readOnly = true)
     public SessionResponse getTodaySession() {
@@ -304,15 +506,13 @@ public class SessionService {
 
         Optional<DailySession> open = sessionRepository
                 .findBySessionDateAndStatus(today, DailySession.SessionStatus.OPEN);
-        if (open.isPresent()) {
+        if (open.isPresent())
             return toResponse(open.get());
-        }
 
         Optional<DailySession> reopened = sessionRepository
                 .findBySessionDateAndStatus(today, DailySession.SessionStatus.REOPENED);
-        if (reopened.isPresent()) {
+        if (reopened.isPresent())
             return toResponse(reopened.get());
-        }
 
         return null;
     }
