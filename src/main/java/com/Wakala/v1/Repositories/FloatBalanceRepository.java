@@ -6,12 +6,14 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-
 public interface FloatBalanceRepository extends JpaRepository<FloatBalance, Long> {
 
-    @EntityGraph(attributePaths = {"provider"})
+    @EntityGraph(attributePaths = { "provider" })
     List<FloatBalance> findBySessionId(Long sessionId);
 
-    @EntityGraph(attributePaths = {"provider"})
+    @EntityGraph(attributePaths = { "provider" })
     Optional<FloatBalance> findBySessionIdAndProviderId(Long sessionId, Long providerId);
+
+    // angalia kama provider yupo kwenye kikao
+    boolean existsBySessionIdAndProviderId(Long sessionId, Long providerId);
 }
