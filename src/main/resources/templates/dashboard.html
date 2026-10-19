@@ -18,6 +18,19 @@
                     </div>
                 </div>
 
+                <!-- ═══ KIKAO KILICHOKWAMA (OWNER PEKEE) ═══ -->
+                <div th:if="${stuckSession != null and user.role.name() == 'OWNER'}" class="alert alert-danger animate-in mb-4">
+                    <h5><i class="bi bi-exclamation-triangle-fill"></i> Kikao Kilichokwama!</h5>
+                    <p class="mb-2">
+                        Kikao cha tarehe <strong th:text="${stuckSession.sessionDate}"></strong>
+                        kimefunguliwa siku <strong th:text="${stuckDaysOld}"></strong> zilizopita
+                        na hakijafungwa. Funga kwanza kabla ya kufungua kipya.
+                    </p>
+                    <a th:href="@{/web/sessions}" class="btn btn-warning btn-modern">
+                        <i class="bi bi-arrow-right"></i> Nenda Ukafunge
+                    </a>
+                </div>
+
                 <!-- ═══ HAKUNA KIKAO CHA LEO ═══ -->
                 <div th:if="${todaySession == null}">
                     <div class="card card-custom mb-4 animate-in">
