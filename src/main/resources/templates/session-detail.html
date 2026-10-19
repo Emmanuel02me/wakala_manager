@@ -38,24 +38,35 @@
                     </div>
                 </div>
 
+
                 <!-- Stats -->
                 <div class="row g-3 mb-4 animate-in">
                     <div class="col-md-3">
                         <div class="stat-card primary">
                             <i class="bi bi-calendar3 stat-icon"></i>
-                            <div class="stat-label">Opening Cash</div>
+                            <div class="stat-label">Opening Total</div>
                             <div class="stat-value"
-                                th:text="'TZS ' + ${#numbers.formatDecimal(sessionDetail.openingCash, 1, 'COMMA', 0, 'POINT')}">
+                                th:text="'TZS ' + ${#numbers.formatDecimal(sessionDetail.openingTotalValue, 1, 'COMMA', 0, 'POINT')}">
                             </div>
+                            <small style="opacity: 0.85;" class="d-block mt-1">
+                                Cash: <span
+                                    th:text="${#numbers.formatDecimal(sessionDetail.openingCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                            </small>
                         </div>
                     </div>
                     <div class="col-md-3">
                         <div class="stat-card info">
                             <i class="bi bi-wallet2 stat-icon"></i>
-                            <div class="stat-label">Closing Cash</div>
-                            <div class="stat-value"
-                                th:text="${sessionDetail.closingCash != null} ? 'TZS ' + ${#numbers.formatDecimal(sessionDetail.closingCash, 1, 'COMMA', 0, 'POINT')} : '—'">
+                            <div class="stat-label">Closing Total</div>
+                            <div class="stat-value" th:if="${sessionDetail.closingTotalValue != null}"
+                                th:text="'TZS ' + ${#numbers.formatDecimal(sessionDetail.closingTotalValue, 1, 'COMMA', 0, 'POINT')}">
                             </div>
+                            <div class="stat-value" th:if="${sessionDetail.closingTotalValue == null}">—</div>
+                            <small style="opacity: 0.85;" class="d-block mt-1"
+                                th:if="${sessionDetail.closingTotalValue != null}">
+                                Cash: <span
+                                    th:text="${#numbers.formatDecimal(sessionDetail.closingCash, 1, 'COMMA', 0, 'POINT')}"></span>
+                            </small>
                         </div>
                     </div>
                     <div class="col-md-3">
@@ -71,6 +82,56 @@
                             <i class="bi bi-shield-check stat-icon"></i>
                             <div class="stat-label">Hali</div>
                             <div class="stat-value" th:text="${recon.overallStatus}"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ✅ Total ya Kikao — muhtasari wa jumla -->
+                <div class="card card-custom mb-4 animate-in">
+                    <div class="card-header">
+                        <i class="bi bi-calculator text-primary"></i>
+                        <strong>Muhtasari wa Total ya Kikao</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-md-4 border-end">
+                                <p class="text-muted small mb-1">Ulianza na</p>
+                                <h4 class="text-primary mb-0"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(sessionDetail.openingTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h4>
+                            </div>
+                            <div class="col-md-4 border-end">
+                                <p class="text-muted small mb-1">Faida - Matumizi</p>
+                                <h4 class="mb-0"
+                                    th:classappend="${recon.netProfit.compareTo(T(java.math.BigDecimal).ZERO) >= 0} ? 'text-success' : 'text-danger'"
+                                    th:text="${(recon.netProfit.compareTo(T(java.math.BigDecimal).ZERO) >= 0 ? '+ ' : '') + 'TZS ' + #numbers.formatDecimal(recon.netProfit, 1, 'COMMA', 0, 'POINT')}">
+                                </h4>
+                            </div>
+                            <div class="col-md-4">
+                                <p class="text-muted small mb-1">Umefunga na</p>
+                                <h4 class="mb-0" th:if="${sessionDetail.closingTotalValue != null}"
+                                    th:classappend="${recon.totalValueStatus == 'BALANCED'} ? 'text-success' : 'text-danger'"
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(sessionDetail.closingTotalValue, 1, 'COMMA', 0, 'POINT')}">
+                                </h4>
+                                <h4 class="text-muted mb-0" th:if="${sessionDetail.closingTotalValue == null}">—</h4>
+                            </div>
+                        </div>
+                        <div th:if="${recon.totalValueDifference != null}" class="alert mt-3 mb-0 py-2"
+                            th:classappend="${recon.totalValueStatus == 'BALANCED'} ? 'alert-success' : (${recon.totalValueStatus == 'SHORTAGE'} ? 'alert-danger' : 'alert-warning')">
+                            <i class="bi bi-info-circle"></i>
+                            <span th:if="${recon.totalValueStatus == 'BALANCED'}">Total imelingana kikamilifu.</span>
+                            <span th:if="${recon.totalValueStatus == 'SHORTAGE'}">
+                                Total imepungua kwa <strong
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.totalValueDifference.abs(), 1, 'COMMA', 0, 'POINT')}"></strong>.
+                                Angalia ripoti ya uchambuzi kwa maelezo zaidi.
+                            </span>
+                            <span th:if="${recon.totalValueStatus == 'OVERAGE'}">
+                                Total imeongezeka kwa <strong
+                                    th:text="'TZS ' + ${#numbers.formatDecimal(recon.totalValueDifference, 1, 'COMMA', 0, 'POINT')}"></strong>.
+                                Angalia ripoti ya uchambuzi kwa maelezo zaidi.
+                            </span>
+                            <a th:href="'/web/reconciliation/' + ${sessionDetail.id}" class="alert-link ms-2">Ripoti
+                                Kamili →</a>
                         </div>
                     </div>
                 </div>
